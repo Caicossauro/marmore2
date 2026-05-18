@@ -385,9 +385,11 @@ export const otimizarOrcamentoMateriais = (orcamentoAtual, materiais, opcoes, ma
   const idsSet = new Set(materialIds.map(String));
   const ehAlterado = (matId) => idsSet.has(String(matId));
 
-  // 1) Constrói unidades só das peças dos materiais alterados (preserva offsets dos grupos)
+  // 1) Constrói unidades só das peças dos materiais alterados QUE ESTÃO EM CHAPAS.
+  //    Peças já avulsas (chapaId=null) ficam intactas — seus outsideX/Y podem vir de
+  //    estados anteriores bugados e não devem ser usados como referência de offsets.
   const todasPecasOrig = orcamentoAtual.ambientes.flatMap(amb => amb.pecas);
-  const pecasAlteradasOrig = todasPecasOrig.filter(p => ehAlterado(p.materialId));
+  const pecasAlteradasOrig = todasPecasOrig.filter(p => ehAlterado(p.materialId) && p.chapaId != null);
   const unidadesOrig = construirUnidades(pecasAlteradasOrig);
 
   // 2) Limpa posições das peças que serão reotimizadas
