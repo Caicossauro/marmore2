@@ -24,7 +24,10 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        # Usa `npm install` em vez de `npm ci` porque o lock é gerado no Windows
+        # (desenvolvedor) e `sharp` tem deps nativas só de Linux (@emnapi/*) que
+        # `npm ci` exige no lock. Tradeoff aceitável: lock pode ser regenerado.
+        run: npm install --no-audit --no-fund
 
       - name: Build
         env:
