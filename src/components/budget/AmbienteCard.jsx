@@ -151,11 +151,12 @@ export const AmbienteCard = ({
       material: acc.material + custosPeca.custoMaterial,
       acabamentos: acc.acabamentos + custosPeca.acabamentos,
       recortes: acc.recortes + custosPeca.recortes,
+      adicionais: acc.adicionais + (custosPeca.adicionais || 0),
       total: acc.total + custosPeca.total,
       area: acc.area + ((peca.altura * peca.largura) / 1000000) * (peca.quantidade || 1),
       maoDeObra: acc.maoDeObra + (fixacao.total + colagem.total) * qtd,
     };
-  }, { material: 0, acabamentos: 0, recortes: 0, total: 0, area: 0, maoDeObra: 0 });
+  }, { material: 0, acabamentos: 0, recortes: 0, adicionais: 0, total: 0, area: 0, maoDeObra: 0 });
 
   return (
     <div
@@ -243,6 +244,7 @@ export const AmbienteCard = ({
               { label: 'Material', valor: subtotais.material },
               { label: 'Acabamentos', valor: subtotais.acabamentos },
               { label: 'Recortes', valor: subtotais.recortes },
+              ...(subtotais.adicionais > 0 ? [{ label: 'Outros', valor: subtotais.adicionais }] : []),
               { label: 'Perda', valor: perda },
               { label: 'Mão de Obra', valor: subtotais.maoDeObra },
               { label: 'Total', valor: subtotais.total + perda, destaque: true },

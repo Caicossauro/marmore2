@@ -400,8 +400,10 @@ export const calcularOrcamentoComDetalhes = (orcamentoAtual, materiais, precos) 
 
   let totalAcabamentos = 0;
   let totalRecortes = 0;
+  let totalAdicionais = 0;
   const detalhesAcabamentos = [];
   const detalhesRecortes = [];
+  const detalhesAdicionais = [];
 
   orcamentoAtual.ambientes.forEach((ambiente) => {
     ambiente.pecas.forEach((peca, pecaIdx) => {
@@ -517,6 +519,21 @@ export const calcularOrcamentoComDetalhes = (orcamentoAtual, materiais, precos) 
           valor
         });
       }
+
+      // Adicionais ("Outro" — itens livres com descrição e valor)
+      if (Array.isArray(peca.adicionais)) {
+        peca.adicionais.forEach(item => {
+          const valor = parseFloat(item?.valor) || 0;
+          if (valor !== 0) {
+            totalAdicionais += valor;
+            detalhesAdicionais.push({
+              descricao: item.descricao || 'Outros',
+              peca: nomePeca,
+              valor,
+            });
+          }
+        });
+      }
     });
   });
 
@@ -531,8 +548,8 @@ export const calcularOrcamentoComDetalhes = (orcamentoAtual, materiais, precos) 
   const maoDeObra = calcularMaoDeObraOrcamento(orcamentoAtual, precos);
 
   const margemChapas = (vendaChapas || 0) - (custoChapas || 0);
-  const custoTotal = (custoChapas || 0) + (totalAcabamentos || 0) + (totalRecortes || 0) + deslocamento.total + maoDeObra.total;
-  const vendaTotal = (vendaChapas || 0) + (totalAcabamentos || 0) + (totalRecortes || 0) + deslocamento.total + maoDeObra.total;
+  const custoTotal = (custoChapas || 0) + (totalAcabamentos || 0) + (totalRecortes || 0) + (totalAdicionais || 0) + deslocamento.total + maoDeObra.total;
+  const vendaTotal = (vendaChapas || 0) + (totalAcabamentos || 0) + (totalRecortes || 0) + (totalAdicionais || 0) + deslocamento.total + maoDeObra.total;
   const margemTotal = vendaTotal - custoTotal;
 
   return {
@@ -543,6 +560,8 @@ export const calcularOrcamentoComDetalhes = (orcamentoAtual, materiais, precos) 
     custoSobra: custoSobraTotal,
     acabamentos: totalAcabamentos,
     recortes: totalRecortes,
+    adicionais: totalAdicionais,
+    detalhesAdicionais,
     deslocamento,
     maoDeObra,
     custoTotal,

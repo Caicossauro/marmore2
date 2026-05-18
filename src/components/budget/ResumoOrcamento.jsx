@@ -228,6 +228,12 @@ export const ResumoOrcamento = ({ orcamentoAtual, materiais, precos, onSalvar })
             <span className="text-base font-semibold text-slate-700">{formatBRL(orcamento.recortes)}</span>
           </div>
         )}
+        {orcamento.adicionais > 0 && (
+          <div className="flex justify-between py-3 bg-slate-50 px-4 rounded-lg border border-slate-200">
+            <span className="text-base font-medium text-slate-600">Outros</span>
+            <span className="text-base font-semibold text-slate-700">{formatBRL(orcamento.adicionais)}</span>
+          </div>
+        )}
         {orcamento.custoSobra && orcamento.custoSobra > 0 && (
           <div className="flex justify-between py-3 bg-slate-50 px-4 rounded-lg border border-slate-200">
             <span className="text-base font-medium text-slate-600">Perda</span>
