@@ -1,4 +1,6 @@
 import { ESPACAMENTO_CHAPAS, MARGEM_CHAPAS } from '../constants/config';
+import { calcularDeslocamento } from './deslocamento';
+import { calcularMaoDeObraOrcamento } from './maoDeObra';
 
 /**
  * Converte área de mm² para m²
@@ -26,7 +28,7 @@ export const converterPrecoParaM2 = (precoChapa, comprimentoMm, alturaMm) => {
  * Calcula os custos detalhados de uma única peça
  */
 export const calcularCustosPeca = (peca, material, precos) => {
-  if (!peca || !material) return { area: 0, custoMaterial: 0, acabamentos: 0, recortes: 0, total: 0, detalhesAcabamentos: [], detalhesRecortes: [] };
+  if (!peca || !material) return { area: 0, custoMaterial: 0, acabamentos: 0, recortes: 0, adicionais: 0, total: 0, detalhesAcabamentos: [], detalhesRecortes: [], detalhesAdicionais: [] };
 
   const largura = peca.rotacao === 90 ? peca.altura : peca.largura;
   const altura = peca.rotacao === 90 ? peca.largura : peca.altura;
@@ -102,14 +104,29 @@ export const calcularCustosPeca = (peca, material, precos) => {
     detalhesRecortes.push({ tipo: 'Pés', quantidade: peca.pes, valor });
   }
 
+  // Calcular adicionais ("Outros" — itens livres com descrição e valor)
+  let totalAdicionais = 0;
+  const detalhesAdicionais = [];
+  if (Array.isArray(peca.adicionais)) {
+    peca.adicionais.forEach(item => {
+      const valor = parseFloat(item?.valor) || 0;
+      if (valor !== 0) {
+        totalAdicionais += valor;
+        detalhesAdicionais.push({ descricao: item.descricao || 'Outros', valor });
+      }
+    });
+  }
+
   return {
     area,
     custoMaterial,
     acabamentos: totalAcabamentos,
     recortes: totalRecortes,
-    total: custoMaterial + totalAcabamentos + totalRecortes,
+    adicionais: totalAdicionais,
+    total: custoMaterial + totalAcabamentos + totalRecortes + totalAdicionais,
     detalhesAcabamentos,
-    detalhesRecortes
+    detalhesRecortes,
+    detalhesAdicionais,
   };
 };
 
@@ -134,15 +151,15 @@ export const organizarPecasEmChapas = (orcamento, materiais) => {
 
   // Para cada material, organizar em chapas
   Object.keys(pecasPorMaterial).forEach(materialId => {
-    const material = materiais.find(m => m.id === parseInt(materialId));
+    const material = materiais.find(m => String(m.id) === String(materialId));
     if (!material) return;
 
     // Obter configuração do material para este orçamento
-    const materialConfig = orcamento.materiais?.[parseInt(materialId)] || {
+    const materialConfig = orcamento.materiais?.[materialId] || {
       comprimento: 3000,
       altura: 2000,
-      custo: 250,
-      venda: 333.33
+      custo: 300,
+      venda: 900
     };
 
     const pecas = pecasPorMaterial[materialId];
@@ -151,7 +168,7 @@ export const organizarPecasEmChapas = (orcamento, materiais) => {
       let colocada = false;
 
       // Tentar colocar nas chapas existentes primeiro
-      for (let chapa of chapas.filter(c => c.materialId === parseInt(materialId))) {
+      for (let chapa of chapas.filter(c => String(c.materialId) === String(materialId))) {
         const pos = encontrarPosicaoNaChapa(chapa, peca, materialConfig, espacamento, margem);
         if (pos) {
           peca.chapaId = chapa.id;
@@ -167,7 +184,7 @@ export const organizarPecasEmChapas = (orcamento, materiais) => {
       if (!colocada) {
         const novaChapa = {
           id: Date.now() + Math.random(),
-          materialId: parseInt(materialId),
+          materialId,
           material: { ...material, ...materialConfig }, // Combinar nome do material com suas dimensões/preços
           pecas: []
         };
@@ -228,7 +245,7 @@ export const calcularPerdaPorAmbiente = (orcamento) => {
     const materialConfig = orcamento.materiais?.[chapa.materialId] || {
       comprimento: 3000,
       altura: 2000,
-      custo: 250
+      custo: 300
     };
     if (materialConfig.naoCobrarPerda) return;
     const areaTotalChapa = calcularAreaM2(materialConfig.comprimento, materialConfig.altura);
@@ -328,8 +345,8 @@ export const calcularOrcamentoComDetalhes = (orcamentoAtual, materiais, precos) 
     const materialConfig = orcamentoAtual.materiais?.[chapa.materialId] || {
       comprimento: 3000,
       altura: 2000,
-      custo: 250,
-      venda: 333.33
+      custo: 300,
+      venda: 900
     };
 
     // Contar chapas por material (para exibição)
@@ -351,12 +368,12 @@ export const calcularOrcamentoComDetalhes = (orcamentoAtual, materiais, precos) 
     const areaSobraM2 = areaTotalChapa - areaPecasM2;
 
     // Cobrar peças pelo preço de VENDA por m²
-    const vendaPecas = areaPecasM2 * (materialConfig.venda || 333.33);
+    const vendaPecas = areaPecasM2 * (materialConfig.venda || 900);
 
     // Sobra: só cobra se o material não estiver marcado como "em estoque".
     const custoSobra = materialConfig.naoCobrarPerda
       ? 0
-      : areaSobraM2 * (materialConfig.custo || 250);
+      : areaSobraM2 * (materialConfig.custo || 300);
 
     // Adicionar custo base das peças (necessário para cálculo de margem)
     const custoPecas = areaPecasM2 * (materialConfig.custo || 250);
@@ -386,7 +403,7 @@ export const calcularOrcamentoComDetalhes = (orcamentoAtual, materiais, precos) 
   const detalhesAcabamentos = [];
   const detalhesRecortes = [];
 
-  orcamentoAtual.ambientes.forEach((ambiente, ambIdx) => {
+  orcamentoAtual.ambientes.forEach((ambiente) => {
     ambiente.pecas.forEach((peca, pecaIdx) => {
       const nomePeca = peca.nome || `${ambiente.nome} - Peça #${pecaIdx + 1}`;
 
@@ -507,9 +524,15 @@ export const calcularOrcamentoComDetalhes = (orcamentoAtual, materiais, precos) 
   const vendaPecasTotal = detalhesChapas.reduce((sum, d) => sum + d.vendaPecas, 0);
   const custoSobraTotal = detalhesChapas.reduce((sum, d) => sum + d.custoSobra, 0);
 
+  // Deslocamento: repasse direto (custo = venda, sem margem própria).
+  const deslocamento = calcularDeslocamento(orcamentoAtual.deslocamento, precos);
+
+  // Mão de obra: fixação (por peça) + montagem (por ambiente). Repasse direto.
+  const maoDeObra = calcularMaoDeObraOrcamento(orcamentoAtual, precos);
+
   const margemChapas = (vendaChapas || 0) - (custoChapas || 0);
-  const custoTotal = (custoChapas || 0) + (totalAcabamentos || 0) + (totalRecortes || 0);
-  const vendaTotal = (vendaChapas || 0) + (totalAcabamentos || 0) + (totalRecortes || 0);
+  const custoTotal = (custoChapas || 0) + (totalAcabamentos || 0) + (totalRecortes || 0) + deslocamento.total + maoDeObra.total;
+  const vendaTotal = (vendaChapas || 0) + (totalAcabamentos || 0) + (totalRecortes || 0) + deslocamento.total + maoDeObra.total;
   const margemTotal = vendaTotal - custoTotal;
 
   return {
@@ -520,6 +543,8 @@ export const calcularOrcamentoComDetalhes = (orcamentoAtual, materiais, precos) 
     custoSobra: custoSobraTotal,
     acabamentos: totalAcabamentos,
     recortes: totalRecortes,
+    deslocamento,
+    maoDeObra,
     custoTotal,
     vendaTotal,
     margemTotal,

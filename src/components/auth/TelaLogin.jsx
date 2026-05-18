@@ -1,9 +1,24 @@
 import { useState, useEffect } from 'react';
-import { verificarSenha } from '../../utils/database';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth, isFirebaseConfigured } from '../../lib/firebase';
+
+const mensagemDeErro = (codigo) => {
+  switch (codigo) {
+    case 'auth/invalid-email':         return 'E-mail inválido.';
+    case 'auth/user-disabled':         return 'Usuário desativado.';
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':    return 'E-mail ou senha incorretos.';
+    case 'auth/too-many-requests':     return 'Muitas tentativas. Tente novamente em alguns minutos.';
+    case 'auth/network-request-failed':return 'Sem conexão. Verifique sua internet.';
+    default:                           return 'Não foi possível entrar. Tente novamente.';
+  }
+};
 
 export const TelaLogin = ({ aoEntrar }) => {
+  const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [erro, setErro] = useState(false);
+  const [erro, setErro] = useState('');
   const [verificando, setVerificando] = useState(false);
   const [tentativas, setTentativas] = useState(0);
   const [bloqueado, setBloqueado] = useState(false);
@@ -22,30 +37,26 @@ export const TelaLogin = ({ aoEntrar }) => {
   }, [bloqueado, segundosRestantes]);
 
   const tentar = async () => {
-    if (bloqueado || !senha || verificando) return;
+    if (bloqueado || !email || !senha || verificando) return;
+    if (!isFirebaseConfigured || !auth) {
+      setErro('Sistema de autenticação não configurado.');
+      return;
+    }
 
     setVerificando(true);
+    setErro('');
     try {
-      const senhaCorreta = await verificarSenha(senha);
-
-      if (senhaCorreta) {
-        localStorage.setItem('pietra_logado', 'true');
-        aoEntrar();
-      } else {
-        const novas = tentativas + 1;
-        setTentativas(novas);
-        setErro(true);
-        setSenha('');
-        setTimeout(() => setErro(false), 2500);
-        if (novas >= 5) {
-          setBloqueado(true);
-          setSegundosRestantes(30);
-        }
+      await signInWithEmailAndPassword(auth, email.trim(), senha);
+      aoEntrar?.();
+    } catch (e) {
+      const novas = tentativas + 1;
+      setTentativas(novas);
+      setErro(mensagemDeErro(e?.code));
+      setSenha('');
+      if (novas >= 5) {
+        setBloqueado(true);
+        setSegundosRestantes(30);
       }
-    } catch (error) {
-      console.error('Erro ao verificar senha:', error);
-      setErro(true);
-      setTimeout(() => setErro(false), 2500);
     } finally {
       setVerificando(false);
     }
@@ -64,7 +75,6 @@ export const TelaLogin = ({ aoEntrar }) => {
       }}
     >
       <div style={{ width: '100%', maxWidth: '380px' }}>
-        {/* Ícone */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
           <div
             style={{
@@ -83,7 +93,6 @@ export const TelaLogin = ({ aoEntrar }) => {
           </div>
         </div>
 
-        {/* Título */}
         <h1
           style={{
             color: '#fff',
@@ -106,7 +115,6 @@ export const TelaLogin = ({ aoEntrar }) => {
           Sistema de Orçamentos
         </p>
 
-        {/* Card */}
         <div
           style={{
             background: '#1e293b',
@@ -125,19 +133,54 @@ export const TelaLogin = ({ aoEntrar }) => {
               marginBottom: '8px'
             }}
           >
-            Senha de Acesso
+            E-mail
+          </label>
+
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') tentar(); }}
+            placeholder="seu@email.com"
+            disabled={bloqueado || verificando}
+            autoFocus
+            autoComplete="username"
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              borderRadius: '12px',
+              border: erro ? '2px solid #ef4444' : '1px solid #475569',
+              background: bloqueado ? '#1e293b' : '#334155',
+              color: '#fff',
+              fontSize: '16px',
+              outline: 'none',
+              boxSizing: 'border-box',
+              cursor: bloqueado ? 'not-allowed' : 'text',
+              transition: 'border 0.2s',
+              marginBottom: '16px'
+            }}
+          />
+
+          <label
+            style={{
+              display: 'block',
+              color: '#cbd5e1',
+              fontSize: '13px',
+              fontWeight: '600',
+              marginBottom: '8px'
+            }}
+          >
+            Senha
           </label>
 
           <input
             type="password"
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') tentar();
-            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') tentar(); }}
             placeholder={bloqueado ? `Bloqueado... ${segundosRestantes}s` : '••••••••'}
             disabled={bloqueado || verificando}
-            autoFocus
+            autoComplete="current-password"
             style={{
               width: '100%',
               padding: '12px 16px',
@@ -153,8 +196,7 @@ export const TelaLogin = ({ aoEntrar }) => {
             }}
           />
 
-          {/* Erro */}
-          {erro && (
+          {erro && !bloqueado && (
             <p
               style={{
                 color: '#f87171',
@@ -163,11 +205,11 @@ export const TelaLogin = ({ aoEntrar }) => {
                 margin: '8px 0 0 0'
               }}
             >
-              ⚠️ Senha incorreta. Tentativas restantes: {5 - tentativas}
+              ⚠️ {erro}
+              {tentativas > 0 && tentativas < 5 && ` Tentativas restantes: ${5 - tentativas}`}
             </p>
           )}
 
-          {/* Bloqueado */}
           {bloqueado && (
             <p
               style={{
@@ -181,10 +223,9 @@ export const TelaLogin = ({ aoEntrar }) => {
             </p>
           )}
 
-          {/* Botão */}
           <button
             onClick={tentar}
-            disabled={bloqueado || !senha || verificando}
+            disabled={bloqueado || !email || !senha || verificando}
             style={{
               width: '100%',
               marginTop: '24px',
@@ -192,15 +233,15 @@ export const TelaLogin = ({ aoEntrar }) => {
               borderRadius: '12px',
               border: 'none',
               background:
-                bloqueado || !senha || verificando
+                bloqueado || !email || !senha || verificando
                   ? '#475569'
                   : 'linear-gradient(135deg, #3b82f6, #2563eb)',
               color: '#fff',
               fontSize: '15px',
               fontWeight: '700',
-              cursor: bloqueado || !senha || verificando ? 'not-allowed' : 'pointer',
+              cursor: bloqueado || !email || !senha || verificando ? 'not-allowed' : 'pointer',
               boxShadow:
-                bloqueado || !senha || verificando ? 'none' : '0 4px 15px rgba(59,130,246,0.4)',
+                bloqueado || !email || !senha || verificando ? 'none' : '0 4px 15px rgba(59,130,246,0.4)',
               transition: 'all 0.2s'
             }}
           >
@@ -208,7 +249,6 @@ export const TelaLogin = ({ aoEntrar }) => {
           </button>
         </div>
 
-        {/* Rodapé */}
         <p
           style={{
             color: '#475569',
@@ -217,7 +257,7 @@ export const TelaLogin = ({ aoEntrar }) => {
             marginTop: '20px'
           }}
         >
-          Acesso restrito · Fale com o administrador para obter a senha
+          Acesso restrito · Fale com o administrador para obter as credenciais
         </p>
       </div>
     </div>

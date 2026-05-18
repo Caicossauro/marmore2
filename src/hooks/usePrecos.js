@@ -9,6 +9,7 @@ import { getPrecos, savePrecos } from '../utils/database';
 export const usePrecos = () => {
   const [precos, setPrecos] = useState(PRECOS_PADRAO);
   const [precosSalvos, setPrecosSalvos] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState(null);
   const [mostrarPainelPrecos, setMostrarPainelPrecos] = useState(false);
 
   // Carregar preços salvos do banco ao montar
@@ -44,12 +45,14 @@ export const usePrecos = () => {
    * Salva preços no banco com feedback visual
    */
   const salvarPrecos = async () => {
-    await savePrecos(precos);
-    setPrecosSalvos(true);
-
-    setTimeout(() => {
-      setPrecosSalvos(false);
-    }, 3000);
+    setErroSalvar(null);
+    try {
+      await savePrecos(precos);
+      setPrecosSalvos(true);
+      setTimeout(() => setPrecosSalvos(false), 3000);
+    } catch {
+      setErroSalvar('Erro ao salvar. Tente novamente.');
+    }
   };
 
   /**
@@ -62,6 +65,7 @@ export const usePrecos = () => {
   return {
     precos,
     precosSalvos,
+    erroSalvar,
     mostrarPainelPrecos,
     atualizarPreco,
     salvarPrecos,

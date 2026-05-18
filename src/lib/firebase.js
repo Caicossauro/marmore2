@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -12,6 +13,13 @@ const firebaseConfig = {
 
 const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
 
-export const db = isFirebaseConfigured ? getFirestore(initializeApp(firebaseConfig)) : null;
+const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
+
+// `ignoreUndefinedProperties` evita que setDoc lance erro quando um campo
+// é `undefined` em qualquer nível aninhado (ex.: `peca.linkId` removido via
+// destructuring) — sem isso, o save falha silenciosamente e o usuário
+// perde alterações.
+export const db = app ? initializeFirestore(app, { ignoreUndefinedProperties: true }) : null;
+export const auth = app ? getAuth(app) : null;
 
 export { isFirebaseConfigured };

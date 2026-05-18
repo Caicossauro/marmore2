@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PRECOS_PADRAO } from '../constants/config';
-import { getOrcamentos, saveOrcamento, deleteOrcamento, migrarLocalStorageParaSupabase } from '../utils/database';
+import { getOrcamentos, saveOrcamento, deleteOrcamento, migrarLocalStorageParaSupabase, getPrecos } from '../utils/database';
 
 /**
  * Hook para gerenciar orçamentos
@@ -37,15 +37,11 @@ export const useBudgets = () => {
     carregar();
   }, []);
 
-  // Salvar orçamento atual no banco quando muda (debounced via flag)
+  // Salvar orçamento atual no banco quando muda.
+  // PROPAGA erros — caller decide o que mostrar pro usuário.
   const salvarOrcamentoNoBanco = useCallback(async (orcamento) => {
     if (!inicializado || !orcamento) return;
-    try {
-      await saveOrcamento(orcamento);
-      console.log('💾 Orçamento salvo automaticamente');
-    } catch (error) {
-      console.error('Erro ao salvar orçamento:', error);
-    }
+    await saveOrcamento(orcamento);
   }, [inicializado]);
 
   /**
@@ -69,7 +65,7 @@ export const useBudgets = () => {
    * @param {string} nome - Nome do orçamento (opcional, usa nomeNovoOrcamento se não fornecido)
    * @returns {Object} Novo orçamento criado
    */
-  const criarOrcamento = async (nome, precosIniciais) => {
+  const criarOrcamento = async (nome, precosIniciais, clienteId = null) => {
     const nomeOrcamento = nome || nomeNovoOrcamento;
 
     if (!nomeOrcamento.trim()) {
@@ -77,12 +73,18 @@ export const useBudgets = () => {
       return null;
     }
 
+    // Buscar preços frescos do Firestore (evita race condition com usePrecos).
+    // precosIniciais permanece como override opcional para callers específicos
+    // (ex: futura "duplicação" de orçamento que queira preservar preços do original).
+    const precosBase = precosIniciais || await getPrecos() || PRECOS_PADRAO;
+
     const novoOrcamento = {
       nome: nomeOrcamento,
       dataCriacao: new Date().toISOString(),
+      clienteId: clienteId ?? null,
       ambientes: [],
       chapas: [],
-      precos: { ...(precosIniciais || PRECOS_PADRAO) },
+      precos: { ...precosBase },
       materiais: {}
     };
 

@@ -1,18 +1,48 @@
 import { useMemo, useState } from 'react';
 import { formatBRL } from '../../utils/formatters';
 import { calcularOrcamentoComDetalhes } from '../../utils/calculations';
+import { ChevronDownIcon } from '../../constants/icons';
+import { Button } from '../ui/Button';
 
-export const ResumoOrcamento = ({ orcamentoAtual, materiais, precos, onSalvar, onSair }) => {
+export const ResumoOrcamento = ({ orcamentoAtual, materiais, precos, onSalvar }) => {
   const orcamento = useMemo(
     () => calcularOrcamentoComDetalhes(orcamentoAtual, materiais, precos),
     [orcamentoAtual, materiais, precos]
   );
 
   const [chapasExpandido, setChapasExpandido] = useState(false);
+  const [expandido, setExpandido] = useState(true);
 
   return (
-    <div className="bg-gray-100 rounded-lg shadow-sm p-6 border border-slate-200">
-      <h3 className="text-2xl font-bold mb-6 text-slate-800">Resumo do Orçamento</h3>
+    <div
+      className="bg-white border-2 rounded-lg shadow-md hover:shadow-lg transition-all"
+      style={{ borderColor: '#cbd5e1', borderLeft: '6px solid #475569' }}
+    >
+      <button
+        type="button"
+        onClick={() => setExpandido((v) => !v)}
+        className={`w-full text-left p-3 sm:p-4 bg-white flex items-center justify-between hover:bg-slate-50 transition-colors ${
+          expandido ? 'border-b border-slate-200' : ''
+        }`}
+      >
+        <h3 className="text-base font-semibold text-slate-800">Resumo do Orçamento</h3>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-base font-bold text-green-700">{formatBRL(orcamento.vendaTotal || 0)}</span>
+          <ChevronDownIcon
+            size={16}
+            className={`text-slate-500 transition-transform duration-300 ${expandido ? 'rotate-0' : '-rotate-90'}`}
+          />
+        </div>
+      </button>
+
+      <div
+        className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{
+          maxHeight: expandido ? '5000px' : '0',
+          opacity: expandido ? 1 : 0,
+        }}
+      >
+        <div className="p-3 sm:p-4 bg-white">
 
       {orcamento.detalhesChapas && orcamento.detalhesChapas.length > 0 && (
         <div className="mb-6 border border-slate-200 rounded-lg overflow-hidden">
@@ -66,7 +96,7 @@ export const ResumoOrcamento = ({ orcamentoAtual, materiais, precos, onSalvar, o
                     <div className="font-bold text-sm text-slate-800">{detalhe.areaPecas.toFixed(2)}m²</div>
                   </div>
                   <div className="bg-gray-100 rounded p-2 border border-slate-200 text-center">
-                    <div className="text-xs text-slate-500">Sobra</div>
+                    <div className="text-xs text-slate-500">Perda</div>
                     <div className="font-bold text-sm text-slate-800">{detalhe.areaSobra.toFixed(2)}m²</div>
                     <div className="text-xs text-slate-600 mt-1">{formatBRL(detalhe.custoSobra || 0)}</div>
                   </div>
@@ -154,7 +184,7 @@ export const ResumoOrcamento = ({ orcamentoAtual, materiais, precos, onSalvar, o
                   </div>
                 </div>
                 <div className="flex justify-between items-center text-sm pb-2 border-b border-slate-300">
-                  <span className="text-slate-600 font-medium">Sobra Cobrada</span>
+                  <span className="text-slate-600 font-medium">Perda Cobrada</span>
                   <div className="text-right">
                     <span className="text-slate-700 font-semibold">
                       {orcamento.detalhesChapas.reduce((sum, d) => sum + d.areaSobra, 0).toFixed(2)}m²
@@ -186,12 +216,6 @@ export const ResumoOrcamento = ({ orcamentoAtual, materiais, precos, onSalvar, o
           <span className="text-base font-medium text-slate-600">Material (peças)</span>
           <span className="text-base font-semibold text-slate-700">{formatBRL(orcamento.vendaPecas || 0)}</span>
         </div>
-        {orcamento.custoSobra && orcamento.custoSobra > 0 && (
-          <div className="flex justify-between py-3 bg-slate-50 px-4 rounded-lg border border-slate-200">
-            <span className="text-base font-medium text-slate-600">Sobra</span>
-            <span className="text-base font-semibold text-slate-700">{formatBRL(orcamento.custoSobra)}</span>
-          </div>
-        )}
         {orcamento.acabamentos > 0 && (
           <div className="flex justify-between py-3 bg-slate-50 px-4 rounded-lg border border-slate-200">
             <span className="text-base font-medium text-slate-600">Acabamentos</span>
@@ -204,44 +228,56 @@ export const ResumoOrcamento = ({ orcamentoAtual, materiais, precos, onSalvar, o
             <span className="text-base font-semibold text-slate-700">{formatBRL(orcamento.recortes)}</span>
           </div>
         )}
+        {orcamento.custoSobra && orcamento.custoSobra > 0 && (
+          <div className="flex justify-between py-3 bg-slate-50 px-4 rounded-lg border border-slate-200">
+            <span className="text-base font-medium text-slate-600">Perda</span>
+            <span className="text-base font-semibold text-slate-700">{formatBRL(orcamento.custoSobra)}</span>
+          </div>
+        )}
+        {orcamento.deslocamento && orcamento.deslocamento.total > 0 && (
+          <div className="flex justify-between py-3 bg-slate-50 px-4 rounded-lg border border-slate-200">
+            <span className="text-base font-medium text-slate-600">
+              Deslocamento
+              <span className="text-xs text-slate-400 ml-2">
+                ({orcamento.deslocamento.kmIdaEVolta.toFixed(0)} km · {orcamento.deslocamento.funcionarios} pessoas · {orcamento.deslocamento.diasEntrega} dias)
+              </span>
+            </span>
+            <span className="text-base font-semibold text-slate-700">{formatBRL(orcamento.deslocamento.total)}</span>
+          </div>
+        )}
+        {orcamento.maoDeObra && orcamento.maoDeObra.total > 0 && (() => {
+          const partes = [];
+          if (orcamento.maoDeObra.fixacao > 0) partes.push(`fixação ${formatBRL(orcamento.maoDeObra.fixacao)}`);
+          if (orcamento.maoDeObra.colagem > 0) partes.push(`colagem ${formatBRL(orcamento.maoDeObra.colagem)}`);
+          if (orcamento.maoDeObra.montagem > 0) partes.push(`montagem ${formatBRL(orcamento.maoDeObra.montagem)}`);
+          return (
+            <div className="flex justify-between py-3 bg-slate-50 px-4 rounded-lg border border-slate-200">
+              <span className="text-base font-medium text-slate-600">
+                Mão de Obra
+                <span className="text-xs text-slate-400 ml-2">({partes.join(' · ')})</span>
+              </span>
+              <span className="text-base font-semibold text-slate-700">{formatBRL(orcamento.maoDeObra.total)}</span>
+            </div>
+          );
+        })()}
       </div>
 
       <div className="mt-4 space-y-3">
-        <div className="flex justify-between py-4 bg-green-700 px-4 rounded-lg">
-          <span className="text-xl font-bold text-white uppercase">Valor de Venda</span>
-          <span className="text-xl font-bold text-white">{formatBRL(orcamento.vendaTotal)}</span>
+        <div className="marble-btn-dark-green flex justify-between py-4 px-4 rounded-lg">
+          <span className="relative z-10 text-xl font-bold text-white uppercase">Valor de Venda</span>
+          <span className="relative z-10 text-xl font-bold text-white">{formatBRL(orcamento.vendaTotal)}</span>
         </div>
-        {orcamento.margemTotal > 0 && (
-          <div className="flex justify-between py-3 bg-slate-50 px-4 rounded-lg border border-slate-300">
-            <span className="text-base font-semibold text-slate-700 uppercase">Margem de Lucro</span>
-            <span className="text-base font-semibold text-slate-700">
-              {formatBRL(orcamento.margemTotal)}
-              <span className="text-sm ml-2 text-slate-500">({((orcamento.margemTotal / orcamento.vendaTotal) * 100).toFixed(1)}%)</span>
-            </span>
-          </div>
-        )}
       </div>
 
-      {(onSalvar || onSair) && (
-        <div className="mt-6 flex justify-end gap-4">
-          {onSair && (
-            <button
-              onClick={onSair}
-              className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-2.5 rounded-lg font-medium text-base transition-all hover:shadow-lg hover:shadow-slate-500/50 hover:scale-105 active:scale-95"
-            >
-              Voltar
-            </button>
-          )}
-          {onSalvar && (
-            <button
-              onClick={onSalvar}
-              className="bg-slate-700 hover:bg-slate-800 text-white px-6 py-2.5 rounded-lg font-medium text-base transition-all hover:shadow-lg hover:shadow-slate-500/50 hover:scale-105 active:scale-95"
-            >
-              Salvar Orçamento
-            </button>
-          )}
+      {onSalvar && (
+        <div className="mt-6 flex justify-end">
+          <Button variant="primary" size="lg" onClick={onSalvar}>
+            Salvar Orçamento
+          </Button>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 };

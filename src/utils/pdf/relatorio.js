@@ -171,7 +171,7 @@ export const gerarRelatorioPDF = async (orcamentoAtual, materiais, precos) => {
     pecasAmbiente.forEach((peca, pecaIdx) => {
       const material = materiais.find(m => m.id === peca.materialId);
       const materialConfig = orcamentoAtual.materiais?.[peca.materialId] || {
-        comprimento: 3000, altura: 2000, custo: 250, venda: 333.33
+        comprimento: 3000, altura: 2000, custo: 300, venda: 900
       };
       const materialComConfig = material ? { ...material, ...materialConfig } : null;
       const custos = calcularCustosPeca(peca, materialComConfig, precos);
@@ -270,10 +270,10 @@ export const gerarRelatorioPDF = async (orcamentoAtual, materiais, precos) => {
     orcamento.detalhesChapas.forEach((detalhe, idx) => {
       checkNewPage(18);
       const materialConfig = orcamentoAtual.materiais?.[detalhe.materialId] || {
-        comprimento: 3000, altura: 2000, custo: 250, venda: 333.33
+        comprimento: 3000, altura: 2000, custo: 300, venda: 900
       };
-      const precoVendaM2 = materialConfig.venda || 333.33;
-      const precoCustoM2 = materialConfig.custo || 250;
+      const precoVendaM2 = materialConfig.venda || 900;
+      const precoCustoM2 = materialConfig.custo || 300;
 
       pdf.setFont('helvetica', 'bold');
       pdf.text(

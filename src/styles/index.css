@@ -32,6 +32,346 @@
   }
 }
 
+/* ── Textura de mármore preto ───────────────────────────────────────────────── */
+
+/* Fundo para sidebar, header e barras de navegação */
+.bg-marble {
+  background-image: url('./black.webp');
+  background-size: cover;
+  background-position: left center;
+}
+
+/* Fundo branco de mármore para a área de conteúdo das páginas */
+.bg-marble-white {
+  background-image: url('./white.webp');
+  background-size: cover;
+  background-position: center top;
+}
+
+/* Verde: revela do escuro — usado no primeiro hover sobre a linha */
+@keyframes marble-reveal {
+  from { filter: brightness(0.15) saturate(0); }
+  to   { filter: brightness(1)    saturate(1); }
+}
+
+/* Ondulação lenta — percorre o background-position em loop suave */
+@keyframes marble-flow {
+  0%   { background-position: 20% 40%; }
+  25%  { background-position: 65% 20%; }
+  50%  { background-position: 80% 60%; }
+  75%  { background-position: 35% 75%; }
+  100% { background-position: 20% 40%; }
+}
+
+/* Ondulação do botão — deslocamentos maiores para sensação de movimento mais viva */
+@keyframes marble-flow-btn {
+  0%   { background-position: 10% 20%; }
+  20%  { background-position: 75% 5%;  }
+  40%  { background-position: 90% 75%; }
+  60%  { background-position: 25% 90%; }
+  80%  { background-position: 5%  35%; }
+  100% { background-position: 10% 20%; }
+}
+
+/* ── ConfirmDialog animations ───────────────────────────────────────────────── */
+
+@keyframes dialog-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes dialog-backdrop-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes dialog-card-in {
+  from { opacity: 0; transform: scale(0.88) translateY(-12px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);     }
+}
+@keyframes dialog-card-out {
+  from { opacity: 1; transform: scale(1)    translateY(0);     }
+  to   { opacity: 0; transform: scale(0.88) translateY(-12px); }
+}
+
+.dialog-backdrop-in  { animation: dialog-backdrop-in  0.2s ease-out  forwards; }
+.dialog-backdrop-out { animation: dialog-backdrop-out 0.18s ease-in  forwards; }
+.dialog-card-in  { animation: dialog-card-in  0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.dialog-card-out { animation: dialog-card-out 0.18s ease-in forwards; }
+
+/* Hover dourado para células do cabeçalho da tabela */
+/* background-attachment: fixed ancora a imagem no viewport, não no elemento:
+   todas as colunas compartilham o mesmo "mapa" → continuidade ao mover o mouse */
+.header-th {
+  transition: color 0.4s ease-out;
+}
+
+.header-th::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('./gold.webp');
+  background-attachment: fixed;
+  background-size: 200%;
+  background-repeat: no-repeat;
+  background-position: 20% 40%;
+  opacity: 0;
+  transition: opacity 0.4s ease-out;
+  pointer-events: none;
+  animation: marble-flow 240s linear infinite;
+  animation-play-state: paused;
+}
+
+.header-th:hover {
+  color: black;
+}
+
+.header-th:hover::before {
+  opacity: 1;
+  animation-play-state: running;
+}
+
+
+/* Fundo preto-mármore estático para o form — compartilhado entre as barras */
+.bg-marble-form {
+  background-image: url('./black.webp');
+  background-size: cover;
+  background-position: center;
+}
+
+/* Hover dourado para barras de seção do formulário */
+.marble-section-hover {
+  position: relative;
+  overflow: hidden;
+  background-attachment: scroll;
+  background-size: cover;
+  transform: translateZ(0);
+}
+
+.marble-section-hover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('./gold.webp');
+  background-size: 300%;
+  background-repeat: no-repeat;
+  background-position: 20% 40%;
+  opacity: 0;
+  transition: opacity 0.4s ease-out;
+  pointer-events: none;
+}
+
+.marble-section-hover:hover::before {
+  opacity: 1;
+  animation: marble-flow 240s linear infinite;
+}
+
+.marble-section-hover * {
+  position: relative;
+  z-index: 1;
+  transition: color 0.4s ease-out;
+}
+
+.marble-section-hover:hover * {
+  color: black !important;
+}
+
+/* Células da linha de dados */
+.mrow-cell {
+  position: relative;
+}
+
+/* Green.jpg — fade in/out via ::after; animação sempre definida, só pausa/retoma */
+.mrow-cell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('./green.webp');
+  background-attachment: scroll;
+  background-size: 350%;
+  background-repeat: no-repeat;
+  background-position: 20% 40%;
+  opacity: 0;
+  transition: opacity 0.4s ease-out;
+  pointer-events: none;
+  z-index: 0;
+  animation: marble-flow 240s linear infinite;
+  animation-play-state: paused;
+}
+
+.marble-row-hover .mrow-cell:hover::after {
+  opacity: 1;
+  animation-play-state: running;
+}
+
+/* Red.jpg — funde sobre o green ao passar o mouse em Excluir */
+.mrow-cell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('./red.webp');
+  background-attachment: scroll;
+  background-size: 200%;
+  background-repeat: no-repeat;
+  background-position: 20% 40%;
+  opacity: 0;
+  transition: opacity 0.4s ease-out;
+  pointer-events: none;
+  z-index: 1;
+  animation: marble-flow 240s linear infinite;
+  animation-play-state: paused;
+}
+
+tr.marble-row-hover:has(.excluir-btn:hover) .mrow-cell::before {
+  opacity: 1;
+  animation-play-state: running;
+}
+
+/* Gold.jpg — funde sobre o green ao passar o mouse em Duplicar */
+tr.marble-row-hover:has(.duplicar-btn:hover) .mrow-cell::after {
+  background-image: url('./gold.webp');
+  opacity: 1;
+  animation-play-state: running;
+}
+
+tr.marble-row-hover:has(.duplicar-btn:hover) td,
+tr.marble-row-hover:has(.duplicar-btn:hover) td * {
+  color: white !important;
+}
+
+/* Conteúdo da célula fica acima de ambos os pseudo-elementos */
+.mrow-cell > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Texto faz transição de cor nas duas direções */
+tr.marble-row-hover td,
+tr.marble-row-hover td * {
+  transition: color 0.25s ease;
+}
+
+.marble-row-hover .mrow-cell:hover,
+.marble-row-hover .mrow-cell:hover * {
+  color: white !important;
+}
+
+tr.marble-row-hover:has(.excluir-btn:hover) td,
+tr.marble-row-hover:has(.excluir-btn:hover) td * {
+  color: white !important;
+}
+
+/* Botão preto-mármore em repouso → verde-mármore no hover (cross-fade real) */
+.marble-btn-dark-green {
+  position: relative;
+  overflow: hidden;
+  background-image: url('./black.webp');
+  background-size: cover;
+  background-position: center;
+}
+
+.marble-btn-dark-green::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('./green.webp');
+  background-size: 700%;
+  background-repeat: no-repeat;
+  background-position: 10% 20%;
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+  pointer-events: none;
+  animation: marble-flow-btn 80s linear infinite;
+  animation-play-state: paused;
+}
+
+.marble-btn-dark-green:hover:not(:disabled)::before {
+  opacity: 1;
+  animation-play-state: running;
+}
+
+.marble-btn-dark-green:active:not(:disabled) {
+  filter: brightness(0.8);
+}
+
+/* Botão preto-mármore em repouso → vermelho-mármore no hover */
+.marble-btn-dark-red {
+  position: relative;
+  overflow: hidden;
+  background-image: url('./black.webp');
+  background-size: cover;
+  background-position: center;
+}
+
+.marble-btn-dark-red::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('./red.webp');
+  background-size: 700%;
+  background-repeat: no-repeat;
+  background-position: 10% 20%;
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+  pointer-events: none;
+  animation: marble-flow-btn 80s linear infinite;
+  animation-play-state: paused;
+}
+
+.marble-btn-dark-red:hover:not(:disabled)::before {
+  opacity: 1;
+  animation-play-state: running;
+}
+
+.marble-btn-dark-red:active:not(:disabled) {
+  filter: brightness(0.8);
+}
+
+/* Botão verde-mármore — textura visível no repouso, brilho no hover */
+.marble-btn-green {
+  background-image: url('./green.webp');
+  background-size: cover;
+  background-position: center;
+  transition: filter 0.15s ease;
+}
+
+.marble-btn-green:hover:not(:disabled) {
+  filter: brightness(1.25);
+}
+
+.marble-btn-green:active:not(:disabled) {
+  filter: brightness(0.85);
+}
+
+/* Botões primários com textura de mármore */
+.marble-btn {
+  background-image: url('./black.webp');
+  background-size: 400%;
+  background-position: center;
+  transition: filter 0.15s ease;
+}
+
+.marble-btn:hover:not(:disabled) {
+  filter: brightness(1.3);
+}
+
+.marble-btn:active:not(:disabled) {
+  filter: brightness(0.85);
+}
+
+/* Coluna Ações sticky — fundo sólido, sombra esquerda e z-index para cobrir células ao rolar */
+.acoes-sticky {
+  position: sticky !important;
+  right: 0;
+  background-color: #f3f4f6;
+  z-index: 2;
+  box-shadow: -4px 0 8px -2px rgba(0, 0, 0, 0.1);
+}
+
+/* Cabeçalho da coluna Ações: sombra sobre o conteúdo rolado abaixo */
+.acoes-th-sticky {
+  box-shadow: -4px 0 8px -2px rgba(0, 0, 0, 0.35);
+}
+
+
 /* Loading spinner */
 .loading {
   display: flex;

@@ -1,15 +1,27 @@
 import { useState } from 'react';
+import { EditorDePecaPortal } from './EditorDePecaPortal';
 import { formatBRL } from '../../utils/formatters';
 import { calcularCustosPeca } from '../../utils/calculations';
+import { calcularFixacaoPeca, calcularColagemPeca } from '../../utils/maoDeObra';
+import { Button } from '../ui/Button';
 import { PreviewAcabamentos } from '../preview/PreviewAcabamentos';
 import { temaDoAmbiente } from '../../constants/colors';
+import { useSharedHeight } from '../../hooks/useSharedHeight';
+import { STORAGE_KEYS } from '../../constants/config';
+import { ChevronDownIcon } from '../../constants/icons';
 
 const MATERIAL_CONFIG_PADRAO = {
   comprimento: 3000,
   altura: 2000,
-  custo: 250,
-  venda: 333.33
+  custo: 300,
+  venda: 900
 };
+
+const ACABAMENTO_INICIAL = () => ({
+  ativo: false,
+  lados: { superior: false, inferior: false, esquerda: false, direita: false },
+  extensoes: {},
+});
 
 const NOVA_PECA_VAZIA = (materialId = null) => ({
   nome: '',
@@ -18,11 +30,14 @@ const NOVA_PECA_VAZIA = (materialId = null) => ({
   quantidade: 1,
   materialId,
   acabamentos: {
-    esquadria: { ativo: false, lados: { superior: false, inferior: false, esquerda: false, direita: false } },
-    boleado: { ativo: false, lados: { superior: false, inferior: false, esquerda: false, direita: false } },
-    polimento: { ativo: false, lados: { superior: false, inferior: false, esquerda: false, direita: false } },
-    canal: { ativo: false, lados: { superior: false, inferior: false, esquerda: false, direita: false } }
+    esquadria: ACABAMENTO_INICIAL(),
+    boleado: ACABAMENTO_INICIAL(),
+    polimento: ACABAMENTO_INICIAL(),
+    canal: ACABAMENTO_INICIAL(),
   },
+  acabamentosPersonalizados: { esquadria: '', boleado: '', polimento: '', canal: '' },
+  recortesPosicionados: [],
+  adicionais: [],
   cuba: 0,
   cubaEsculpida: 0,
   cooktop: 0,
@@ -30,10 +45,98 @@ const NOVA_PECA_VAZIA = (materialId = null) => ({
   pes: 0
 });
 
-export const AmbienteCard = ({ ambiente, indice = 0, materiais, materialConfigs, precos, perda = 0, onAdicionarPeca, onExcluirPeca, onExcluirAmbiente, onRenomearAmbiente, onVisualizarPeca, onPedirConfirmacaoExclusao }) => {
+// Handle de resize vertical: arrastar pra mudar a altura do bloco acima dele.
+function ResizeHandleAltura({ altura, setAltura, minAltura = 200, maxAltura = 1500, label = 'Arraste para ajustar a altura' }) {
+  const onMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startY = e.clientY;
+    const startAltura = altura;
+    const onMove = (ev) => {
+      const dy = ev.clientY - startY;
+      setAltura(Math.min(maxAltura, Math.max(minAltura, startAltura + dy)));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      className="h-2.5 cursor-ns-resize flex items-center justify-center group select-none"
+      title={label}
+    >
+      <div className="w-12 h-1 rounded-full bg-slate-300 group-hover:bg-slate-500 transition-colors" />
+    </div>
+  );
+}
+
+export const AmbienteCard = ({
+  ambiente, indice = 0, materiais, materialConfigs, precos, perda = 0,
+  onAdicionarPeca, onExcluirAmbiente, onRenomearAmbiente,
+  onVisualizarPeca, onPedirConfirmacaoExclusao,
+  // Controle externo do form de "Nova Peça" — apenas 1 ambiente edita por vez,
+  // pra que o preview global (renderizado em portal) não duplique.
+  formAberto = false, onAbrirForm, onFecharForm,
+}) => {
   const [expandido, setExpandido] = useState(false);
-  const [mostrarForm, setMostrarForm] = useState(false);
+  const mostrarForm = formAberto;
+  const setMostrarForm = (valor) => {
+    if (valor) onAbrirForm?.();
+    else onFecharForm?.();
+  };
   const [novaPeca, setNovaPeca] = useState(NOVA_PECA_VAZIA(materiais[0]?.id || null));
+  const [blocoHeight, setBlocoHeight] = useSharedHeight(STORAGE_KEYS.BLOCO_AMBIENTE_HEIGHT, 800);
+
+  // Valida nome, dimensões positivas e material. Retorna a peça pronta ou null se inválida.
+  const validarNovaPeca = () => {
+    const alt = parseFloat(novaPeca.altura);
+    const larg = parseFloat(novaPeca.largura);
+    const qtd = parseInt(novaPeca.quantidade) || 1;
+    if (!novaPeca.nome || !novaPeca.materialId) {
+      alert('Preencha o nome e selecione um material.');
+      return null;
+    }
+    if (!Number.isFinite(alt) || alt <= 0 || !Number.isFinite(larg) || larg <= 0) {
+      alert('Altura e largura precisam ser números maiores que zero.');
+      return null;
+    }
+    if (qtd <= 0) {
+      alert('Quantidade precisa ser maior que zero.');
+      return null;
+    }
+    return { ...novaPeca, altura: alt, largura: larg, quantidade: qtd };
+  };
+
+  // Salva a peça em edição e fecha o form
+  const salvarNovaPeca = () => {
+    const pecaValida = validarNovaPeca();
+    if (!pecaValida) return;
+    onAdicionarPeca(pecaValida);
+    setNovaPeca(NOVA_PECA_VAZIA(novaPeca.materialId));
+    setMostrarForm(false);
+  };
+
+  // Salva e mantém o form aberto pra adicionar a próxima peça
+  // (limpa campos mas preserva o material — quem tá fazendo orçamento normalmente
+  // adiciona várias peças do mesmo material em sequência)
+  const salvarEContinuar = () => {
+    const pecaValida = validarNovaPeca();
+    if (!pecaValida) return;
+    onAdicionarPeca(pecaValida);
+    setNovaPeca(NOVA_PECA_VAZIA(novaPeca.materialId));
+    // form fica aberto
+  };
+
+  const cancelarNovaPeca = () => {
+    setNovaPeca(NOVA_PECA_VAZIA(materiais[0]?.id || null));
+    setMostrarForm(false);
+  };
+
+
   const [editandoNome, setEditandoNome] = useState(false);
   const [nomeEditando, setNomeEditando] = useState(ambiente.nome);
   const tema = temaDoAmbiente(indice);
@@ -41,34 +144,37 @@ export const AmbienteCard = ({ ambiente, indice = 0, materiais, materialConfigs,
   const subtotais = ambiente.pecas.reduce((acc, peca) => {
     const materialConfig = materialConfigs[peca.materialId] || MATERIAL_CONFIG_PADRAO;
     const custosPeca = calcularCustosPeca(peca, materialConfig, precos);
+    const fixacao = calcularFixacaoPeca(peca, precos);
+    const colagem = calcularColagemPeca(peca, precos);
+    const qtd = Number(peca.quantidade) || 1;
     return {
       material: acc.material + custosPeca.custoMaterial,
       acabamentos: acc.acabamentos + custosPeca.acabamentos,
       recortes: acc.recortes + custosPeca.recortes,
       total: acc.total + custosPeca.total,
-      area: acc.area + ((peca.altura * peca.largura) / 1000000) * (peca.quantidade || 1)
+      area: acc.area + ((peca.altura * peca.largura) / 1000000) * (peca.quantidade || 1),
+      maoDeObra: acc.maoDeObra + (fixacao.total + colagem.total) * qtd,
     };
-  }, { material: 0, acabamentos: 0, recortes: 0, total: 0, area: 0 });
+  }, { material: 0, acabamentos: 0, recortes: 0, total: 0, area: 0, maoDeObra: 0 });
 
   return (
     <div
-      className="border-2 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all"
+      className="bg-white border-2 rounded-lg shadow-md hover:shadow-lg transition-all overflow-hidden"
       style={{
         position: 'relative',
         zIndex: 1,
-        borderColor: tema.border,
+        borderColor: '#cbd5e1',
         borderLeft: `6px solid ${tema.base}`,
       }}
     >
       <div
-        className="p-4 cursor-pointer transition-all border-b"
-        style={{ backgroundColor: tema.bgLight, borderColor: tema.border }}
+        className={`p-3 sm:p-4 bg-white hover:bg-slate-50 cursor-pointer transition-colors ${
+          expandido ? 'border-b border-slate-200' : ''
+        }`}
         onClick={() => setExpandido(!expandido)}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = tema.bgSoft)}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = tema.bgLight)}
       >
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 flex-1">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
             {editandoNome ? (
               <input
                 autoFocus
@@ -106,36 +212,44 @@ export const AmbienteCard = ({ ambiente, indice = 0, materiais, materialConfigs,
               </h3>
             )}
             {onExcluirAmbiente && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (window.confirm(`Tem certeza que deseja excluir o ambiente "${ambiente.nome}"?\n\nTodas as peças deste ambiente serão perdidas.`)) {
                     onExcluirAmbiente();
                   }
                 }}
-                className="text-slate-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg transition-all text-xs font-medium"
                 title="Excluir ambiente"
+                className="!text-slate-400 hover:!text-red-600 hover:!bg-red-50"
               >
                 Excluir
-              </button>
+              </Button>
             )}
           </div>
-          <span className="text-xs text-slate-500">{ambiente.pecas.length} peças • {subtotais.area.toFixed(2)}m²</span>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-xs text-slate-500">{ambiente.pecas.length} peças • {subtotais.area.toFixed(2)}m²</span>
+            <ChevronDownIcon
+              size={16}
+              className={`text-slate-500 transition-transform duration-300 ${expandido ? 'rotate-0' : '-rotate-90'}`}
+            />
+          </div>
         </div>
 
         {ambiente.pecas.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
             {[
               { label: 'Material', valor: subtotais.material },
               { label: 'Acabamentos', valor: subtotais.acabamentos },
               { label: 'Recortes', valor: subtotais.recortes },
               { label: 'Perda', valor: perda },
+              { label: 'Mão de Obra', valor: subtotais.maoDeObra },
               { label: 'Total', valor: subtotais.total + perda, destaque: true },
             ].map(({ label, valor, destaque }) => (
               <div
                 key={label}
-                className="rounded p-2 border"
-                style={{ backgroundColor: 'rgba(255,255,255,0.85)', borderColor: tema.border }}
+                className="rounded p-2 border border-slate-200 bg-slate-50"
               >
                 <div className="text-xs text-slate-500 text-center">{label}</div>
                 <div className={`text-center ${destaque ? 'text-sm font-bold text-slate-900' : 'text-sm font-semibold text-slate-700'}`}>
@@ -154,301 +268,66 @@ export const AmbienteCard = ({ ambiente, indice = 0, materiais, materialConfigs,
           opacity: expandido ? 1 : 0
         }}
       >
-        <div className="p-4 space-y-4 max-h-[800px] overflow-y-auto">
+        <div
+          className="p-2 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto"
+          style={{ maxHeight: blocoHeight }}
+        >
+          {mostrarForm && (
+            <EditorDePecaPortal
+              peca={novaPeca}
+              onChangePeca={setNovaPeca}
+              materiais={materiais}
+              materialConfigs={materialConfigs}
+              precos={precos}
+              renderFooterAcoes={({ valido }) => (
+                <>
+                  <Button variant="ghost" onClick={cancelarNovaPeca}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={salvarNovaPeca}
+                    disabled={!valido}
+                    title="Adiciona a peça e fecha a edição"
+                  >
+                    <span className="sm:hidden">+ Fechar</span>
+                    <span className="hidden sm:inline">Adicionar e fechar</span>
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={salvarEContinuar}
+                    disabled={!valido}
+                    title="Adiciona a peça e mantém o form aberto pra próxima"
+                  >
+                    <span className="sm:hidden">+ Continuar</span>
+                    <span className="hidden sm:inline">+ Adicionar e continuar</span>
+                  </Button>
+                </>
+              )}
+            />
+          )}
+
           {!mostrarForm && (
             <button
+              type="button"
               onClick={() => setMostrarForm(true)}
-              className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-gray-600 hover:border-blue-500 hover:text-blue-600"
+              className="w-full border-2 border-dashed border-slate-300 rounded-lg p-4 text-sm font-medium text-slate-600 hover:border-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
             >
               + Adicionar Peça
             </button>
           )}
 
-          {mostrarForm && (
-            <div className="border border-slate-300 rounded-lg p-6 bg-slate-50">
-              <h4 className="font-semibold mb-4 text-slate-800 text-lg">Nova Peça</h4>
-
-              <div className="grid lg:grid-cols-[1fr_320px] gap-6">
-                <div>
-                  <div className="mb-3">
-                    <label className="block text-xs font-medium mb-1">Nome da Peça *</label>
-                    <input
-                      type="text"
-                      value={novaPeca.nome}
-                      onChange={(e) => setNovaPeca({ ...novaPeca, nome: e.target.value })}
-                      className="w-full border rounded px-2 py-1 text-sm"
-                      placeholder="Ex: Bancada Pia, Mesa Jantar, etc"
-                    />
-                  </div>
-                  <div className="grid md:grid-cols-3 gap-3 mb-3">
-                    <div>
-                      <label className="block text-xs font-medium mb-1">Altura (mm)</label>
-                      <input
-                        type="number"
-                        value={novaPeca.altura}
-                        onChange={(e) => setNovaPeca({ ...novaPeca, altura: e.target.value })}
-                        className="w-full border rounded px-2 py-1 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium mb-1">Largura (mm)</label>
-                      <input
-                        type="number"
-                        value={novaPeca.largura}
-                        onChange={(e) => setNovaPeca({ ...novaPeca, largura: e.target.value })}
-                        className="w-full border rounded px-2 py-1 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium mb-1">Quantidade</label>
-                      <input
-                        type="number"
-                        value={novaPeca.quantidade}
-                        onChange={(e) => setNovaPeca({ ...novaPeca, quantidade: parseInt(e.target.value) || 1 })}
-                        className="w-full border rounded px-2 py-1 text-sm"
-                        min="1"
-                      />
-                    </div>
-                    <div className="md:col-span-3">
-                      <label className="block text-xs font-medium mb-1">Material</label>
-                      <select
-                        value={novaPeca.materialId}
-                        onChange={(e) => setNovaPeca({ ...novaPeca, materialId: parseInt(e.target.value) })}
-                        className="w-full border rounded px-2 py-1 text-sm"
-                      >
-                        {materiais.map(mat => (
-                          <option key={mat.id} value={mat.id}>{mat.nome}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <h5 className="font-medium text-sm mb-2">Acabamentos (opcional)</h5>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                    {[
-                      { tipo: 'esquadria', label: 'Esquadria', ativo: 'bg-red-500 border-red-600', hover: 'hover:border-red-400 hover:bg-red-50' },
-                      { tipo: 'boleado', label: 'Boleado', ativo: 'bg-yellow-500 border-yellow-600', hover: 'hover:border-yellow-400 hover:bg-yellow-50' },
-                      { tipo: 'polimento', label: 'Polimento', ativo: 'bg-blue-500 border-blue-600', hover: 'hover:border-blue-400 hover:bg-blue-50' },
-                      { tipo: 'canal', label: 'Canal', ativo: 'bg-orange-500 border-orange-600', hover: 'hover:border-orange-400 hover:bg-orange-50' }
-                    ].map(({ tipo, label, ativo, hover }) => (
-                      <button
-                        key={tipo}
-                        type="button"
-                        onClick={() => {
-                          setNovaPeca({
-                            ...novaPeca,
-                            acabamentos: {
-                              ...novaPeca.acabamentos,
-                              [tipo]: { ...novaPeca.acabamentos[tipo], ativo: !novaPeca.acabamentos[tipo].ativo }
-                            }
-                          });
-                        }}
-                        className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                          novaPeca.acabamentos[tipo].ativo
-                            ? `${ativo} text-white shadow-md`
-                            : `bg-gray-100 border-slate-300 text-slate-700 ${hover}`
-                        }`}
-                      >
-                        {label}
-                        <div className="text-xs opacity-80 mt-0.5">R$ {precos[tipo]}/m</div>
-                      </button>
-                    ))}
-                  </div>
-
-                  {(novaPeca.acabamentos.esquadria.ativo ||
-                    novaPeca.acabamentos.boleado.ativo ||
-                    novaPeca.acabamentos.polimento.ativo ||
-                    novaPeca.acabamentos.canal.ativo) && (
-                    <div className="mb-3 bg-gray-100 border border-slate-300 rounded-lg p-4">
-                      <h6 className="font-semibold text-sm mb-3 text-slate-700">Selecione os lados para cada acabamento:</h6>
-
-                      <div className="flex flex-wrap justify-center gap-4">
-                        {[
-                          { tipo: 'esquadria', label: 'Esquadria', cor: 'red', emoji: '🔴' },
-                          { tipo: 'boleado', label: 'Boleado', cor: 'yellow', emoji: '🟡' },
-                          { tipo: 'polimento', label: 'Polimento', cor: 'blue', emoji: '🔵' },
-                          { tipo: 'canal', label: 'Canal', cor: 'orange', emoji: '🟠' }
-                        ].filter(item => novaPeca.acabamentos[item.tipo].ativo).map(item => {
-                          const coresBg = { red: 'bg-red-100 border-red-400 text-red-700', yellow: 'bg-yellow-100 border-yellow-400 text-yellow-700', blue: 'bg-blue-100 border-blue-400 text-blue-700', orange: 'bg-orange-100 border-orange-400 text-orange-700' };
-                          const coresAtivo = { red: 'bg-red-500 text-white border-red-600', yellow: 'bg-yellow-500 text-white border-yellow-600', blue: 'bg-blue-500 text-white border-blue-600', orange: 'bg-orange-500 text-white border-orange-600' };
-                          const coresInativo = { red: 'bg-gray-100 text-red-400 border-red-200 hover:bg-red-50', yellow: 'bg-gray-100 text-yellow-500 border-yellow-200 hover:bg-yellow-50', blue: 'bg-gray-100 text-blue-400 border-blue-200 hover:bg-blue-50', orange: 'bg-gray-100 text-orange-400 border-orange-200 hover:bg-orange-50' };
-
-                          const toggleLado = (lado) => {
-                            const novosAcabamentos = { ...novaPeca.acabamentos };
-                            novosAcabamentos[item.tipo] = {
-                              ...novosAcabamentos[item.tipo],
-                              lados: {
-                                ...novosAcabamentos[item.tipo].lados,
-                                [lado]: !novosAcabamentos[item.tipo].lados[lado]
-                              }
-                            };
-                            setNovaPeca({ ...novaPeca, acabamentos: novosAcabamentos });
-                          };
-
-                          const lados = novaPeca.acabamentos[item.tipo].lados;
-                          const ladosSelecionados = Object.keys(lados).filter(l => lados[l]).length;
-                          const todosAtivos = lados.superior && lados.inferior && lados.esquerda && lados.direita;
-
-                          return (
-                            <div key={item.tipo} className={`rounded-lg p-3 border w-56 ${coresBg[item.cor]}`}>
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="text-xs font-bold">{item.emoji} {item.label}</p>
-                                <span className="text-xs opacity-70">{ladosSelecionados} lado(s)</span>
-                              </div>
-
-                              <div className="flex items-center justify-center">
-                                <div className="relative" style={{ width: '180px', height: '120px' }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleLado('superior')}
-                                    className={`absolute top-0 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-bold rounded-t-lg border-2 transition-all ${lados.superior ? coresAtivo[item.cor] : coresInativo[item.cor]}`}
-                                    style={{ minWidth: '80px', zIndex: 2 }}
-                                  >
-                                    Superior
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleLado('inferior')}
-                                    className={`absolute bottom-0 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-bold rounded-b-lg border-2 transition-all ${lados.inferior ? coresAtivo[item.cor] : coresInativo[item.cor]}`}
-                                    style={{ minWidth: '80px', zIndex: 2 }}
-                                  >
-                                    Inferior
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleLado('esquerda')}
-                                    className={`absolute left-0 top-1/2 -translate-y-1/2 px-1 py-2 text-xs font-bold rounded-l-lg border-2 transition-all ${lados.esquerda ? coresAtivo[item.cor] : coresInativo[item.cor]}`}
-                                    style={{ writingMode: 'vertical-lr', textOrientation: 'mixed', zIndex: 2 }}
-                                  >
-                                    Esq.
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleLado('direita')}
-                                    className={`absolute right-0 top-1/2 -translate-y-1/2 px-1 py-2 text-xs font-bold rounded-r-lg border-2 transition-all ${lados.direita ? coresAtivo[item.cor] : coresInativo[item.cor]}`}
-                                    style={{ writingMode: 'vertical-lr', textOrientation: 'mixed', zIndex: 2 }}
-                                  >
-                                    Dir.
-                                  </button>
-
-                                  <div
-                                    className="absolute bg-gray-100 border-2 border-gray-300 rounded flex items-center justify-center"
-                                    style={{ top: '22px', bottom: '22px', left: '26px', right: '26px' }}
-                                  >
-                                    <span className="text-xs text-gray-400 font-medium">PEÇA</span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex justify-center mt-2 gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const novosAcabamentos = { ...novaPeca.acabamentos };
-                                    novosAcabamentos[item.tipo] = {
-                                      ...novosAcabamentos[item.tipo],
-                                      lados: {
-                                        superior: !todosAtivos,
-                                        inferior: !todosAtivos,
-                                        esquerda: !todosAtivos,
-                                        direita: !todosAtivos
-                                      }
-                                    };
-                                    setNovaPeca({ ...novaPeca, acabamentos: novosAcabamentos });
-                                  }}
-                                  className={`text-xs px-3 py-1 rounded-full border font-semibold transition-all ${
-                                    todosAtivos
-                                      ? coresAtivo[item.cor]
-                                      : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
-                                  }`}
-                                >
-                                  {todosAtivos ? '✓ Todos os lados' : 'Selecionar todos'}
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  <h5 className="font-medium text-sm mb-2">Recortes (opcional)</h5>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
-                    {[
-                      { campo: 'cuba', label: 'Cuba' },
-                      { campo: 'cubaEsculpida', label: 'Cuba Esculpida' },
-                      { campo: 'cooktop', label: 'Cooktop' },
-                      { campo: 'recorte', label: 'Recorte' },
-                      { campo: 'pes', label: 'Pés' }
-                    ].map(({ campo, label }) => (
-                      <div key={campo}>
-                        <label className="block text-xs mb-1">{label}</label>
-                        <input
-                          type="number"
-                          value={novaPeca[campo] || ''}
-                          onChange={(e) => setNovaPeca({ ...novaPeca, [campo]: parseInt(e.target.value) || 0 })}
-                          className="w-full border rounded px-2 py-1 text-sm"
-                          min="0"
-                          placeholder="0"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="border-2 border-slate-300 rounded-lg bg-gray-100 p-4 sticky top-4 self-start">
-                  <h5 className="font-bold text-sm text-slate-700 mb-3 pb-2 border-b border-slate-200">
-                    📋 Preview da Peça
-                  </h5>
-                  <div className="flex items-start justify-center">
-                    {novaPeca.largura && novaPeca.altura ? (
-                      <PreviewAcabamentos peca={novaPeca} />
-                    ) : (
-                      <div className="text-center py-8 text-slate-400 text-sm">
-                        <p className="mb-2">⚠️</p>
-                        <p>Preencha largura e altura para ver o preview</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-2 mt-6">
-                <button
-                  onClick={() => {
-                    if (novaPeca.nome && novaPeca.altura && novaPeca.largura && novaPeca.materialId) {
-                      onAdicionarPeca({
-                        ...novaPeca,
-                        altura: parseFloat(novaPeca.altura),
-                        largura: parseFloat(novaPeca.largura)
-                      });
-                      setNovaPeca(NOVA_PECA_VAZIA(novaPeca.materialId));
-                      setMostrarForm(false);
-                    } else {
-                      alert('Por favor, preencha o nome, altura e largura da peça!');
-                    }
-                  }}
-                  className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Adicionar Peça
-                </button>
-                <button
-                  onClick={() => setMostrarForm(false)}
-                  className="border border-gray-300 px-4 py-2 rounded text-sm hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          )}
-
-          {ambiente.pecas.map(peca => {
+          {[...ambiente.pecas].reverse().map(peca => {
             const material = materiais.find(m => m.id === peca.materialId);
             const materialConfig = materialConfigs[peca.materialId] || MATERIAL_CONFIG_PADRAO;
             const custosPeca = calcularCustosPeca(peca, materialConfig, precos);
+            const fixacaoPeca = calcularFixacaoPeca(peca, precos);
+            const colagemPeca = calcularColagemPeca(peca, precos);
+            const qtdPeca = Number(peca.quantidade) || 1;
+            const valorFixacaoTotal = fixacaoPeca.total * qtdPeca;
+            const valorColagemTotal = colagemPeca.total * qtdPeca;
+            const valorMaoDeObraTotal = valorFixacaoTotal + valorColagemTotal;
+            const totalPecaComMaoDeObra = custosPeca.total + valorMaoDeObraTotal;
             return (
               <div key={peca.id} className="border border-slate-200 rounded-lg p-4 hover:border-slate-400 hover:shadow-sm transition-all">
                 <div className="flex gap-4">
@@ -533,13 +412,31 @@ export const AmbienteCard = ({ ambiente, indice = 0, materiais, materialConfigs,
                     {custosPeca.recortes > 0 && (
                       <span className="text-slate-500">Recortes: <span className="font-semibold text-slate-700">{formatBRL(custosPeca.recortes)}</span></span>
                     )}
+                    {custosPeca.adicionais > 0 && (
+                      <span className="text-slate-500">Outros: <span className="font-semibold text-slate-700">{formatBRL(custosPeca.adicionais)}</span></span>
+                    )}
+                    {valorMaoDeObraTotal > 0 && (() => {
+                      const partes = [];
+                      if (valorFixacaoTotal > 0) {
+                        partes.push(`Fixação: ${fixacaoPeca.qtdGrapas} grapas, ${fixacaoPeca.qtdPus} P.U.`);
+                      }
+                      if (valorColagemTotal > 0) {
+                        partes.push(`Colagem: ${colagemPeca.areaM2.toFixed(2)}m² × R$/m²`);
+                      }
+                      const tooltip = partes.join(' · ') + (qtdPeca > 1 ? ` × ${qtdPeca}` : '');
+                      return (
+                        <span className="text-slate-500" title={tooltip}>
+                          Mão de Obra: <span className="font-semibold text-slate-700">{formatBRL(valorMaoDeObraTotal)}</span>
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="mt-2 pt-2 border-t border-slate-300 flex justify-between items-center">
                     <span className="text-sm font-bold text-slate-700">Total da Peça:</span>
-                    <span className="text-base font-bold text-green-700">{formatBRL(custosPeca.total)}</span>
+                    <span className="text-base font-bold text-green-700">{formatBRL(totalPecaComMaoDeObra)}</span>
                   </div>
 
-                  {(custosPeca.detalhesAcabamentos.length > 0 || custosPeca.detalhesRecortes.length > 0) && (
+                  {(custosPeca.detalhesAcabamentos.length > 0 || custosPeca.detalhesRecortes.length > 0 || (custosPeca.detalhesAdicionais && custosPeca.detalhesAdicionais.length > 0)) && (
                     <details className="mt-2">
                       <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">
                         Ver detalhes dos custos
@@ -567,6 +464,17 @@ export const AmbienteCard = ({ ambiente, indice = 0, materiais, materialConfigs,
                             ))}
                           </div>
                         )}
+                        {custosPeca.detalhesAdicionais && custosPeca.detalhesAdicionais.length > 0 && (
+                          <div className="mt-1">
+                            <p className="text-xs font-semibold text-slate-700">Outros:</p>
+                            {custosPeca.detalhesAdicionais.map((detalhe, idx) => (
+                              <div key={idx} className="text-xs text-slate-600 flex justify-between">
+                                <span>• {detalhe.descricao}</span>
+                                <span className="font-medium">{formatBRL(detalhe.valor)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </details>
                   )}
@@ -575,6 +483,15 @@ export const AmbienteCard = ({ ambiente, indice = 0, materiais, materialConfigs,
             );
           })}
         </div>
+        {expandido && (
+          <ResizeHandleAltura
+            altura={blocoHeight}
+            setAltura={setBlocoHeight}
+            minAltura={300}
+            maxAltura={2000}
+            label="Arraste para ajustar a altura do bloco"
+          />
+        )}
       </div>
     </div>
   );

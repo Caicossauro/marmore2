@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Modelo single-tenant: qualquer usuário autenticado pode ler/escrever.
+    // Os funcionários da marmoraria compartilham os mesmos dados.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

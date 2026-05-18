@@ -1,7 +1,10 @@
 node_modules
 .claude/settings.local.json
+.claude/worktrees/
 dist
 .env
 .env.local
 .DS_Store
 *.log
+queue.json
+visited.json
