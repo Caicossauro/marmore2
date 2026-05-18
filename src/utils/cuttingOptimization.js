@@ -8,6 +8,50 @@ const MATERIAL_CONFIG_PADRAO = {
 };
 
 /**
+ * Consolida peças LINKADAS (mesmo `linkId`) em uma "super peça" virtual com o
+ * bbox combinado do grupo. Usado pelos algoritmos de posicionamento pra evitar
+ * que uma peça nova seja encaixada NO MEIO de um grupo linkado (o que quebraria
+ * a paginação com veio).
+ *
+ * Peças individuais (sem linkId) ficam inalteradas.
+ *
+ * IMPORTANTE: o objeto virtual usa `rotacao: 0` porque o bbox já reflete a
+ * rotação efetiva de cada peça interna.
+ */
+function consolidarLinkadas(pecasChapa) {
+  if (!pecasChapa || pecasChapa.length === 0) return [];
+  const grupos = new Map();
+  const resultado = [];
+
+  for (const p of pecasChapa) {
+    if (p.linkId) {
+      if (!grupos.has(p.linkId)) grupos.set(p.linkId, []);
+      grupos.get(p.linkId).push(p);
+    } else {
+      resultado.push(p);
+    }
+  }
+
+  for (const [linkId, pecasGrupo] of grupos) {
+    if (pecasGrupo.length === 1) {
+      resultado.push(pecasGrupo[0]);
+      continue;
+    }
+    const bbox = bboxGrupo(pecasGrupo);
+    resultado.push({
+      id: `__virtual-${linkId}`,
+      posX: bbox.x,
+      posY: bbox.y,
+      largura: bbox.w,
+      altura: bbox.h,
+      rotacao: 0,
+    });
+  }
+
+  return resultado;
+}
+
+/**
  * Posição original da peça (em coords de chapa ou staging) — usada pra calcular
  * o arranjo relativo de um grupo linkado antes da limpeza de posições.
  */
@@ -98,9 +142,12 @@ const encontrarPosicaoShelf = (chapa, peca, materialConfig, espacamento, margem,
     return { x: margem, y: margem };
   }
 
+  // Consolida peças linkadas em super peças antes de calcular shelves —
+  // evita inserir peça nova no meio de um grupo (paginação com veio).
+  const pecasObstaculo = consolidarLinkadas(chapa.pecas);
   const shelves = [];
 
-  chapa.pecas.forEach(p => {
+  pecasObstaculo.forEach(p => {
     const pLargura = p.rotacao === 90 ? p.altura : p.largura;
     const pAltura = p.rotacao === 90 ? p.largura : p.altura;
 
@@ -161,10 +208,12 @@ const encontrarPosicaoBottomLeft = (chapa, peca, materialConfig, espacamento, ma
     return { x: margem, y: margem };
   }
 
+  // Consolida peças linkadas em super peças (idem encontrarPosicaoShelf).
+  const pecasObstaculo = consolidarLinkadas(chapa.pecas);
   const step = Math.max(1, Math.round(espacamento));
   for (let y = margem; y + pecaAltura + margem <= alturaChapa; y += step) {
     for (let x = margem; x + pecaLargura + margem <= larguraChapa; x += step) {
-      const temColisao = chapa.pecas.some(p => {
+      const temColisao = pecasObstaculo.some(p => {
         const pLargura = p.rotacao === 90 ? p.altura : p.largura;
         const pAltura = p.rotacao === 90 ? p.largura : p.altura;
 
@@ -319,20 +368,28 @@ const limparPosicaoPeca = (peca) => {
 };
 
 /**
- * Otimiza o corte de um orçamento e retorna um novo orçamento com as chapas/peças
- * posicionadas. Função pura — não toca no state.
+ * Otimiza o corte APENAS dos materiais cujos IDs estão em `materialIds`,
+ * preservando intactas todas as chapas e peças dos demais materiais.
  *
- * Peças com `linkId` (paginação com veio) são agrupadas como SUPER PEÇAS — o
- * algoritmo posiciona o bbox combinado, e cada peça do grupo recebe sua posição
- * relativa preservando exatamente o arranjo manual feito pelo usuário.
+ * Comportamento incremental — análogo a `adicionarPeca`: só toca no que
+ * realmente precisa mudar (ex.: usuário alterou dimensão da chapa de UM
+ * material). Peças com `linkId` continuam virando SUPER PEÇAS, preservando
+ * a paginação com veio.
+ *
+ * Função pura.
  */
-export const otimizarOrcamento = (orcamentoAtual, materiais, opcoes) => {
-  // 1) Constrói unidades USANDO as posições originais (pra calcular bbox+offsets dos grupos)
-  const todasPecasOrig = orcamentoAtual.ambientes.flatMap(amb => amb.pecas);
-  const unidadesOrig = construirUnidades(todasPecasOrig);
+export const otimizarOrcamentoMateriais = (orcamentoAtual, materiais, opcoes, materialIds) => {
+  if (!materialIds || materialIds.length === 0) return orcamentoAtual;
 
-  // 2) Substitui as referências de peças pelas versões limpas (sem posX/Y/chapaId).
-  //    Os offsets dos grupos já foram capturados acima e ficam preservados.
+  const idsSet = new Set(materialIds.map(String));
+  const ehAlterado = (matId) => idsSet.has(String(matId));
+
+  // 1) Constrói unidades só das peças dos materiais alterados (preserva offsets dos grupos)
+  const todasPecasOrig = orcamentoAtual.ambientes.flatMap(amb => amb.pecas);
+  const pecasAlteradasOrig = todasPecasOrig.filter(p => ehAlterado(p.materialId));
+  const unidadesOrig = construirUnidades(pecasAlteradasOrig);
+
+  // 2) Limpa posições das peças que serão reotimizadas
   const unidades = unidadesOrig.map(u => {
     if (u.tipo === 'grupo') {
       return {
@@ -345,14 +402,16 @@ export const otimizarOrcamento = (orcamentoAtual, materiais, opcoes) => {
     return { ...u, peca: limparPosicaoPeca(u.peca) };
   });
 
-  // 3) Ordena e agrupa por material
-  const unidadesOrdenadas = ordenarUnidades(unidades, opcoes);
-  const chapas = [];
+  // 3) Preserva chapas dos materiais NÃO alterados — só toca nos alterados
+  const chapasPreservadas = orcamentoAtual.chapas.filter(c => !ehAlterado(c.materialId));
+  const chapasNovas = [];
+
   const espacamento = opcoes.espessuraDisco;
   const margem = opcoes.margemLaterais;
   const modoAgrupamento = opcoes.ordenacaoSequencial === 'agrupamento-tamanho';
-  const pecasFinais = []; // pra reaplicar nos ambientes
+  const pecasFinais = [];
 
+  const unidadesOrdenadas = ordenarUnidades(unidades, opcoes);
   const unidadesPorMaterial = {};
   unidadesOrdenadas.forEach(u => {
     if (!unidadesPorMaterial[u.materialId]) unidadesPorMaterial[u.materialId] = [];
@@ -368,7 +427,6 @@ export const otimizarOrcamento = (orcamentoAtual, materiais, opcoes) => {
     const ultimaChapaPorTamanho = {};
 
     unidadesDoMaterial.forEach(unidade => {
-      // "Peça virtual" passada ao algoritmo de empacotamento — pra grupos é o bbox.
       const pecaParaAlgoritmo = unidade.tipo === 'grupo'
         ? { largura: unidade.largura, altura: unidade.altura, rotacao: 0 }
         : unidade.peca;
@@ -376,9 +434,8 @@ export const otimizarOrcamento = (orcamentoAtual, materiais, opcoes) => {
       let colocada = false;
       const chaveTamanho = `${unidade.largura}x${unidade.altura}`;
 
-      // Modo agrupamento por tamanho: tenta primeiro a "chapa preferida" daquele tamanho
       if (modoAgrupamento && ultimaChapaPorTamanho[chaveTamanho]) {
-        const chapaPreferida = chapas.find(c => c.id === ultimaChapaPorTamanho[chaveTamanho]);
+        const chapaPreferida = chapasNovas.find(c => c.id === ultimaChapaPorTamanho[chaveTamanho]);
         if (chapaPreferida) {
           const pos = encontrarPosicaoNaChapaComOpcoes(chapaPreferida, pecaParaAlgoritmo, materialConfig, espacamento, margem, opcoes.tipoOtimizacao, modoAgrupamento);
           if (pos) {
@@ -388,9 +445,8 @@ export const otimizarOrcamento = (orcamentoAtual, materiais, opcoes) => {
         }
       }
 
-      // Tenta nas chapas existentes do mesmo material
       if (!colocada) {
-        for (const chapa of chapas.filter(c => String(c.materialId) === String(materialId))) {
+        for (const chapa of chapasNovas.filter(c => String(c.materialId) === String(materialId))) {
           const pos = encontrarPosicaoNaChapaComOpcoes(chapa, pecaParaAlgoritmo, materialConfig, espacamento, margem, opcoes.tipoOtimizacao, modoAgrupamento);
           if (pos) {
             pecasFinais.push(...colocarUnidade(unidade, chapa, pos));
@@ -401,7 +457,6 @@ export const otimizarOrcamento = (orcamentoAtual, materiais, opcoes) => {
         }
       }
 
-      // Cria nova chapa se não couber
       if (!colocada) {
         const novaChapa = {
           id: Date.now() + Math.random(),
@@ -409,17 +464,38 @@ export const otimizarOrcamento = (orcamentoAtual, materiais, opcoes) => {
           material: { ...material, ...materialConfig },
           pecas: [],
         };
-        chapas.push(novaChapa);
+        chapasNovas.push(novaChapa);
         pecasFinais.push(...colocarUnidade(unidade, novaChapa, { x: margem, y: margem }));
         if (modoAgrupamento) ultimaChapaPorTamanho[chaveTamanho] = novaChapa.id;
       }
     });
   });
 
+  // 4) Mescla: peças dos materiais não alterados ficam como estavam; alteradas pegam nova posição.
   const ambientesAtualizados = orcamentoAtual.ambientes.map(amb => ({
     ...amb,
-    pecas: amb.pecas.map(p => pecasFinais.find(pf => pf.id === p.id) || p),
+    pecas: amb.pecas.map(p => {
+      if (!ehAlterado(p.materialId)) return p;
+      return pecasFinais.find(pf => pf.id === p.id) || p;
+    }),
   }));
 
-  return { ...orcamentoAtual, chapas, ambientes: ambientesAtualizados };
+  return {
+    ...orcamentoAtual,
+    chapas: [...chapasPreservadas, ...chapasNovas],
+    ambientes: ambientesAtualizados,
+  };
+};
+
+/**
+ * Otimiza o corte de TODO o orçamento (todos os materiais) — wrapper sobre
+ * `otimizarOrcamentoMateriais` passando todos os materialIds presentes.
+ *
+ * Peças com `linkId` (paginação com veio) são preservadas como SUPER PEÇAS.
+ */
+export const otimizarOrcamento = (orcamentoAtual, materiais, opcoes) => {
+  const todosIds = [...new Set(
+    orcamentoAtual.ambientes.flatMap(amb => amb.pecas.map(p => p.materialId))
+  )];
+  return otimizarOrcamentoMateriais(orcamentoAtual, materiais, opcoes, todosIds);
 };

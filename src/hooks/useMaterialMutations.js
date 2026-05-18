@@ -1,5 +1,5 @@
 import { organizarPecasEmChapas } from '../utils/calculations';
-import { otimizarOrcamento } from '../utils/cuttingOptimization';
+import { otimizarOrcamentoMateriais } from '../utils/cuttingOptimization';
 import { CONFIG_CHAPA_PADRAO } from '../constants/config';
 
 export function useMaterialMutations({
@@ -89,19 +89,20 @@ export function useMaterialMutations({
     setTimeout(() => setPrecosSalvosOrcamento(false), 2000);
   };
 
-  // Salvar configuração de materiais. Só reorganiza o plano de corte se DIMENSÕES
-  // da chapa mudaram (comprimento/altura) — mudanças só de valor (custo/venda)
-  // preservam o plano de corte atual.
+  // Salvar configuração de materiais. Só reorganiza o plano de corte dos
+  // materiais cujas DIMENSÕES (comprimento/altura) mudaram — demais materiais
+  // ficam intactos (comportamento incremental, igual ao `adicionarPeca`).
+  // Mudanças só de valor (custo/venda) preservam o plano de corte inteiro.
   //
-  // Quando re-otimiza, usa `otimizarOrcamento` (que respeita `linkId` — peças
-  // linkadas viram super peça e são posicionadas juntas, preservando a paginação).
+  // Reotimização usa `otimizarOrcamentoMateriais` (preserva `linkId` via
+  // super peças — paginação com veio se mantém).
   const salvarMateriaisOrcamento = () => {
     if (!orcamentoAtual) return;
 
     const configAntiga = orcamentoAtual.materiais || {};
     const configNova = { ...configAntiga, ...materiaisTemp };
 
-    const dimensoesMudaram = Object.keys(materiaisTemp).some(matId => {
+    const materiaisAlterados = Object.keys(materiaisTemp).filter(matId => {
       const antiga = configAntiga[matId];
       const nova = materiaisTemp[matId];
       if (!antiga) return true; // material novo no orçamento
@@ -110,14 +111,21 @@ export function useMaterialMutations({
         Number(antiga.altura) !== Number(nova.altura)
       );
     });
+    const dimensoesMudaram = materiaisAlterados.length > 0;
 
-    // Aviso antes de re-otimizar: o plano de corte vai mudar.
+    // Aviso antes de re-otimizar: o plano de corte vai mudar — só pros materiais alterados.
     if (dimensoesMudaram) {
+      const nomesAlterados = materiaisAlterados
+        .map(id => materiais.find(m => String(m.id) === String(id))?.nome)
+        .filter(Boolean);
+      const lista = nomesAlterados.length > 0
+        ? `\n\nMateriais que serão reotimizados: ${nomesAlterados.join(', ')}.`
+        : '';
       const todasPecas = orcamentoAtual.ambientes.flatMap(amb => amb.pecas || []);
-      const temLinks = todasPecas.some(p => p.linkId);
+      const temLinks = todasPecas.some(p => p.linkId && materiaisAlterados.some(id => String(id) === String(p.materialId)));
       const msg = temLinks
-        ? 'Alterar as dimensões da chapa vai re-otimizar o plano de corte.\n\nOs links de paginação (peças com veio) serão preservados — peças linkadas continuam juntas.\n\nContinuar?'
-        : 'Alterar as dimensões da chapa vai re-otimizar o plano de corte.\n\nAs peças serão reposicionadas automaticamente.\n\nContinuar?';
+        ? `Alterar as dimensões da chapa vai re-otimizar o plano de corte.${lista}\n\nOs links de paginação (peças com veio) serão preservados — peças linkadas continuam juntas.\n\nContinuar?`
+        : `Alterar as dimensões da chapa vai re-otimizar o plano de corte.${lista}\n\nAs peças serão reposicionadas automaticamente.\n\nContinuar?`;
       if (!window.confirm(msg)) return;
     }
 
@@ -128,9 +136,13 @@ export function useMaterialMutations({
 
     let orcamentoFinal;
     if (dimensoesMudaram) {
-      // Dimensões mudaram → reorganiza tudo (peças podem não caber mais).
-      // Usa otimizarOrcamento (preserva linkId via super peças).
-      orcamentoFinal = otimizarOrcamento(orcamentoComMateriaisAtualizados, materiais, opcoesOtimizacao || {});
+      // Reotimização cirúrgica: só os materiais alterados (preserva linkId via super peças).
+      orcamentoFinal = otimizarOrcamentoMateriais(
+        orcamentoComMateriaisAtualizados,
+        materiais,
+        opcoesOtimizacao || {},
+        materiaisAlterados,
+      );
     } else {
       // Só preço/custo mudou → mantém posições, mas atualiza a referência do material nas chapas
       // (pra cálculo de custos refletir os novos valores)
