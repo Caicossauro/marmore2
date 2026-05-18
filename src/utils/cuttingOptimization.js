@@ -411,7 +411,7 @@ export const otimizarOrcamentoMateriais = (orcamentoAtual, materiais, opcoes, ma
   const margem = opcoes.margemLaterais;
   const modoAgrupamento = opcoes.ordenacaoSequencial === 'agrupamento-tamanho';
   const pecasFinais = [];
-  const pecasParaAvulsas = [];
+  const unidadesParaAvulsas = [];
 
   const unidadesOrdenadas = ordenarUnidades(unidades, opcoes);
   const unidadesPorMaterial = {};
@@ -472,12 +472,9 @@ export const otimizarOrcamentoMateriais = (orcamentoAtual, materiais, opcoes, ma
           unitAltura + 2 * margem <= materialConfig.altura;
 
         if (!cabeNaChapa) {
-          // Grupo/peça maior que a nova chapa → manda para peças avulsas, preservando linkId
-          if (unidade.tipo === 'grupo') {
-            unidade.offsets.forEach(({ peca }) => pecasParaAvulsas.push(peca));
-          } else {
-            pecasParaAvulsas.push(unidade.peca);
-          }
+          // Grupo/peça maior que a nova chapa → enfileira a UNIDADE inteira pra staging,
+          // preservando linkId e os offsets relativos entre as peças do grupo.
+          unidadesParaAvulsas.push(unidade);
         } else {
           const novaChapa = {
             id: Date.now() + Math.random(),
@@ -493,14 +490,45 @@ export const otimizarOrcamentoMateriais = (orcamentoAtual, materiais, opcoes, ma
     });
   });
 
-  // 4) Peças que não couberam em nenhuma chapa recebem layout de staging.
+  // 4) Unidades que não couberam recebem layout de staging preservando posições relativas.
+  //    O layout é feito sobre o BBOX de cada unidade (grupo ou peça individual).
+  //    Para grupos, cada peça recebe outsideX/Y = stagingPos + seu offset relativo ao bbox,
+  //    mantendo exatamente o arranjo original (paginação com veio intacta).
   const avulsasById = new Map();
-  if (pecasParaAvulsas.length > 0) {
-    const comLayout = layoutStaging(
-      pecasParaAvulsas.map(p => ({ ...p, chapaId: null, posX: null, posY: null })),
-      { larguraMaxMm: STAGING_LARGURA_MM },
-    );
-    comLayout.forEach(p => avulsasById.set(p.id, p));
+  if (unidadesParaAvulsas.length > 0) {
+    const unidadeByVirtualId = new Map();
+    const virtuaisParaLayout = unidadesParaAvulsas.map((u, i) => {
+      const virtualId = `__avulsa-${i}`;
+      unidadeByVirtualId.set(virtualId, u);
+      return { id: virtualId, largura: u.largura, altura: u.altura, rotacao: 0 };
+    });
+
+    const comLayout = layoutStaging(virtuaisParaLayout, { larguraMaxMm: STAGING_LARGURA_MM });
+
+    comLayout.forEach(virtual => {
+      const u = unidadeByVirtualId.get(virtual.id);
+      if (u.tipo === 'grupo') {
+        u.offsets.forEach(({ peca, dx, dy }) => {
+          avulsasById.set(peca.id, {
+            ...peca,
+            chapaId: null,
+            posX: null,
+            posY: null,
+            outsideX: virtual.outsideX + dx,
+            outsideY: virtual.outsideY + dy,
+          });
+        });
+      } else {
+        avulsasById.set(u.peca.id, {
+          ...u.peca,
+          chapaId: null,
+          posX: null,
+          posY: null,
+          outsideX: virtual.outsideX,
+          outsideY: virtual.outsideY,
+        });
+      }
+    });
   }
 
   // 5) Mescla: peças dos materiais não alterados ficam como estavam; alteradas pegam nova posição.
