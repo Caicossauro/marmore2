@@ -1,4 +1,5 @@
 import { bboxGrupo } from './cutting/linkPecas';
+import { layoutStaging, STAGING_LARGURA_MM } from './cutting/stagingLayout';
 
 const MATERIAL_CONFIG_PADRAO = {
   comprimento: 3000,
@@ -410,6 +411,7 @@ export const otimizarOrcamentoMateriais = (orcamentoAtual, materiais, opcoes, ma
   const margem = opcoes.margemLaterais;
   const modoAgrupamento = opcoes.ordenacaoSequencial === 'agrupamento-tamanho';
   const pecasFinais = [];
+  const pecasParaAvulsas = [];
 
   const unidadesOrdenadas = ordenarUnidades(unidades, opcoes);
   const unidadesPorMaterial = {};
@@ -458,24 +460,56 @@ export const otimizarOrcamentoMateriais = (orcamentoAtual, materiais, opcoes, ma
       }
 
       if (!colocada) {
-        const novaChapa = {
-          id: Date.now() + Math.random(),
-          materialId,
-          material: { ...material, ...materialConfig },
-          pecas: [],
-        };
-        chapasNovas.push(novaChapa);
-        pecasFinais.push(...colocarUnidade(unidade, novaChapa, { x: margem, y: margem }));
-        if (modoAgrupamento) ultimaChapaPorTamanho[chaveTamanho] = novaChapa.id;
+        const unitLargura = unidade.tipo === 'grupo'
+          ? unidade.largura
+          : (unidade.peca.rotacao === 90 ? unidade.peca.altura : unidade.peca.largura);
+        const unitAltura = unidade.tipo === 'grupo'
+          ? unidade.altura
+          : (unidade.peca.rotacao === 90 ? unidade.peca.largura : unidade.peca.altura);
+
+        const cabeNaChapa =
+          unitLargura + 2 * margem <= materialConfig.comprimento &&
+          unitAltura + 2 * margem <= materialConfig.altura;
+
+        if (!cabeNaChapa) {
+          // Grupo/peça maior que a nova chapa → manda para peças avulsas, preservando linkId
+          if (unidade.tipo === 'grupo') {
+            unidade.offsets.forEach(({ peca }) => pecasParaAvulsas.push(peca));
+          } else {
+            pecasParaAvulsas.push(unidade.peca);
+          }
+        } else {
+          const novaChapa = {
+            id: Date.now() + Math.random(),
+            materialId,
+            material: { ...material, ...materialConfig },
+            pecas: [],
+          };
+          chapasNovas.push(novaChapa);
+          pecasFinais.push(...colocarUnidade(unidade, novaChapa, { x: margem, y: margem }));
+          if (modoAgrupamento) ultimaChapaPorTamanho[chaveTamanho] = novaChapa.id;
+        }
       }
     });
   });
 
-  // 4) Mescla: peças dos materiais não alterados ficam como estavam; alteradas pegam nova posição.
+  // 4) Peças que não couberam em nenhuma chapa recebem layout de staging.
+  const avulsasById = new Map();
+  if (pecasParaAvulsas.length > 0) {
+    const comLayout = layoutStaging(
+      pecasParaAvulsas.map(p => ({ ...p, chapaId: null, posX: null, posY: null })),
+      { larguraMaxMm: STAGING_LARGURA_MM },
+    );
+    comLayout.forEach(p => avulsasById.set(p.id, p));
+  }
+
+  // 5) Mescla: peças dos materiais não alterados ficam como estavam; alteradas pegam nova posição.
   const ambientesAtualizados = orcamentoAtual.ambientes.map(amb => ({
     ...amb,
     pecas: amb.pecas.map(p => {
       if (!ehAlterado(p.materialId)) return p;
+      const avulsa = avulsasById.get(p.id);
+      if (avulsa) return avulsa;
       return pecasFinais.find(pf => pf.id === p.id) || p;
     }),
   }));
