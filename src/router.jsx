@@ -43,7 +43,7 @@ const router = createBrowserRouter(
       ],
     },
   ],
-  { basename: '/marmore' }
+  { basename: '/marmore2' }
 );
 
 export default router;
