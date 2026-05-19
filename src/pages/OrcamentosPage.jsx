@@ -15,6 +15,11 @@ import { useTabelaListagem } from '../hooks/useTabelaListagem';
 import { ModalNovoOrcamentoPagina } from '../components/modals/ModalNovoOrcamentoPagina';
 import { ModalNovoClienteRapido } from '../components/modals/ModalNovoClienteRapido';
 import { Button } from '../components/ui/Button';
+import { PageHeader } from '../components/layout/PageHeader';
+import { TableSkeleton } from '../components/ui/TableSkeleton';
+import { EmptyState } from '../components/ui/EmptyState';
+import { OrcamentosIcon } from '../constants/icons';
+import { useToast } from '../contexts/ToastContext';
 
 const ITENS_POR_PAGINA = 13;
 
@@ -36,6 +41,8 @@ export default function OrcamentosPage() {
   } = useBudgets();
   const { materiais } = useMaterials();
   const { clientes, salvarCliente } = useClientes();
+
+  const toast = useToast();
 
   const [orcamentoParaExcluir, setOrcamentoParaExcluir]       = useState(null);
   const [mostrarModalNovoCliente, setMostrarModalNovoCliente] = useState(false);
@@ -124,6 +131,7 @@ export default function OrcamentosPage() {
     const novo = await criarOrcamento(nome, undefined, clienteSelecionado.id);
     if (novo?.id) {
       fecharModalNovoOrcamento();
+      toast.success('Orçamento criado com sucesso.');
       navigate(`/orcamentos/${novo.id}`);
     }
   };
@@ -148,10 +156,11 @@ export default function OrcamentosPage() {
     saveOrcamento({ ...copia, id: undefined })
       .then(salvo => {
         setOrcamentos(prev => [...prev, salvo || { ...copia, id: Date.now() }]);
+        toast.success('Orçamento duplicado.');
       })
       .catch(err => {
         console.error('Erro ao duplicar orçamento:', err);
-        alert(`❌ Não foi possível duplicar o orçamento.\n\nMotivo: ${err?.message || 'erro desconhecido'}`);
+        toast.error('Não foi possível duplicar o orçamento.');
       });
   }, [setOrcamentos]);
 
@@ -161,43 +170,43 @@ export default function OrcamentosPage() {
       <tr
         key={orc.id}
         onClick={() => navigate(`/orcamentos/${orc.id}`)}
-        className="marble-row-hover cursor-pointer"
+        className="hover:bg-slate-50 cursor-pointer transition-colors duration-150"
       >
-        <td className="mrow-cell px-5 py-3 font-medium text-slate-800 overflow-hidden">
+        <td className="px-5 py-3 font-medium text-slate-800 overflow-hidden">
           <span className="truncate block">
             {orc.nome || `Orçamento #${String(orc.id).slice(-6)}`}
           </span>
         </td>
-        <td className="mrow-cell px-5 py-3 text-slate-600 overflow-hidden hidden sm:table-cell">
+        <td className="px-5 py-3 text-slate-600 overflow-hidden hidden sm:table-cell">
           {clienteNome
             ? <span className={`truncate block ${clienteRemovido ? 'text-slate-400 italic' : ''}`}>{clienteNome}</span>
             : <span className="text-slate-300">—</span>}
         </td>
-        <td className="mrow-cell px-5 py-3 text-slate-500 overflow-hidden hidden lg:table-cell">
+        <td className="px-5 py-3 text-slate-500 overflow-hidden hidden lg:table-cell">
           <span className="truncate block text-sm">
             {orc.dataCriacao
               ? new Date(orc.dataCriacao).toLocaleDateString('pt-BR')
               : <span className="text-slate-300">—</span>}
           </span>
         </td>
-        <td className="mrow-cell px-5 py-3 text-slate-600 overflow-hidden hidden md:table-cell">
+        <td className="px-5 py-3 text-slate-600 overflow-hidden hidden md:table-cell">
           <span className="truncate block">{orc.ambientes?.length ?? 0}</span>
         </td>
-        <td className="mrow-cell px-5 py-3 font-semibold text-slate-800 overflow-hidden whitespace-nowrap">
+        <td className="px-5 py-3 font-semibold text-slate-800 overflow-hidden whitespace-nowrap">
           <span className="truncate block">{formatBRL(total)}</span>
         </td>
-        <td className="mrow-cell sticky right-0 z-[2] acoes-sticky px-5 py-3 text-center overflow-hidden" onClick={e => e.stopPropagation()}>
+        <td className="sticky right-0 z-[2] acoes-sticky px-5 py-3 text-center overflow-hidden" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-center gap-1">
             <button
               onClick={() => duplicar(orc)}
-              className="duplicar-btn text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-2 py-1 rounded-lg text-xs font-medium transition-colors"
+              className="text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-2 py-1 rounded-lg text-xs font-medium transition-colors"
               title="Duplicar"
             >
               Duplicar
             </button>
             <button
               onClick={() => setOrcamentoParaExcluir(orc.id)}
-              className="excluir-btn text-slate-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg text-xs font-medium transition-colors"
+              className="text-slate-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg text-xs font-medium transition-colors"
             >
               Excluir
             </button>
@@ -208,17 +217,12 @@ export default function OrcamentosPage() {
   }), [paginaAtual, navigate, duplicar]);
 
   return (
-    <div className="p-6">
-      <div className={`bg-gray-100 rounded-lg shadow-sm border border-slate-200 ${filtroAberto ? 'overflow-visible' : 'overflow-hidden'}`}>
-
-        <div className="flex flex-col gap-4 md:flex-row md:items-center justify-between px-5 py-[18px] border-b border-slate-200">
-          <div className="shrink-0">
-            <h1 className="text-2xl font-bold text-slate-800 leading-tight">Orçamentos</h1>
-            <p className="text-xs text-slate-900 mt-0.5">
-              {orcamentos.length} {orcamentos.length === 1 ? 'orçamento' : 'orçamentos'}
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+    <div className="p-1 sm:p-2">
+      <PageHeader
+        titulo="Orçamentos"
+        subtitulo={`${orcamentos.length} ${orcamentos.length === 1 ? 'orçamento' : 'orçamentos'}`}
+        acoes={
+          <>
             <div
               className="overflow-hidden transition-[width,opacity] duration-300 ease-in-out"
               style={{ width: buscaAberta ? '280px' : '0', opacity: buscaAberta ? 1 : 0 }}
@@ -241,25 +245,43 @@ export default function OrcamentosPage() {
             >
               <SearchIcon size={16} />
             </button>
-            <Button variant="primary" size="lg" onClick={abrirModalNovoOrcamento} className="shrink-0 w-full sm:w-auto">
+            <Button variant="primary" size="lg" onClick={abrirModalNovoOrcamento} className="shrink-0">
               + Novo Orçamento
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
+
+      <div className={`bg-gray-100 rounded-lg shadow-sm border border-slate-200 ${filtroAberto ? 'overflow-visible' : 'overflow-hidden'}`}>
 
         {carregando ? (
-          <div className="text-center py-12 text-slate-400 text-sm">Carregando...</div>
+          <TableSkeleton linhas={7} />
         ) : filtrados.length === 0 ? (
-          <div className="text-center py-12 text-slate-400 text-sm">
-            {temFiltroAtivo ? 'Nenhum orçamento encontrado com os filtros aplicados.' : 'Nenhum orçamento criado.'}
-          </div>
+          temFiltroAtivo ? (
+            <EmptyState
+              icone={OrcamentosIcon}
+              titulo="Nenhum orçamento encontrado"
+              descricao="Tente ajustar ou limpar os filtros aplicados."
+            />
+          ) : (
+            <EmptyState
+              icone={OrcamentosIcon}
+              titulo="Nenhum orçamento criado ainda"
+              descricao="Crie seu primeiro orçamento para começar."
+              acao={
+                <Button variant="primary" size="sm" onClick={abrirModalNovoOrcamento}>
+                  + Novo Orçamento
+                </Button>
+              }
+            />
+          )
         ) : (
           <div ref={tableWrapperRef} className={filtroAberto ? 'overflow-visible' : 'overflow-x-auto'}>
             <table className="w-full min-w-0" style={{ tableLayout: 'fixed', width: '100%', minWidth: colWidths.nome + 130 }}>
               <thead className="relative z-20">
-                <tr className="bg-marble border-b border-white/10 text-left">
+                <tr className="bg-sidebar border-b border-white/10 text-left">
 
-                  <th style={{ width: colWidths.nome }} className="header-th px-5 py-3 text-white relative overflow-visible">
+                  <th style={{ width: colWidths.nome }} className="header-th px-5 py-4 text-white relative overflow-visible">
                     <FiltroColuna coluna="nome" label="Orçamento" ordenacao={ordenacao} onOrdenar={handleOrdenar} filtro={filtrosColuna.nome} onFiltrar={handleFiltrar} aberto={filtroAberto === 'nome'} onToggle={handleToggleFiltro} />
                     <ResizeHandle coluna="nome" onResizeDelta={handleResizeDelta} />
                   </th>
@@ -279,12 +301,12 @@ export default function OrcamentosPage() {
                     <ResizeHandle coluna="ambientes" onResizeDelta={handleResizeDelta} />
                   </th>
 
-                  <th style={{ width: colWidths.total }} className="header-th px-5 py-3 text-white relative overflow-visible">
+                  <th style={{ width: colWidths.total }} className="header-th px-5 py-4 text-white relative overflow-visible">
                     <FiltroColuna coluna="total" label="Total" ordenacao={ordenacao} onOrdenar={handleOrdenar} filtro="" onFiltrar={() => {}} aberto={false} onToggle={handleToggleFiltro} tipo="numero" />
                     <ResizeHandle coluna="total" onResizeDelta={handleResizeDelta} />
                   </th>
 
-                  <th style={{ width: 130, minWidth: 130, maxWidth: 130 }} className="header-th sticky right-0 z-[1] bg-marble px-5 py-3 font-semibold text-white text-center acoes-th-sticky">
+                  <th style={{ width: 130, minWidth: 130, maxWidth: 130 }} className="header-th sticky right-0 z-[1] bg-sidebar px-5 py-4 text-[11px] font-semibold uppercase tracking-wider text-white/60 text-center acoes-th-sticky">
                     Ações
                   </th>
 
@@ -323,7 +345,7 @@ export default function OrcamentosPage() {
       {orcamentoParaExcluir && (
         <ConfirmDialog
           mensagem="Deseja realmente excluir este orçamento? Esta ação não pode ser desfeita."
-          onConfirmar={() => { excluirOrcamento(orcamentoParaExcluir); setOrcamentoParaExcluir(null); }}
+          onConfirmar={() => { excluirOrcamento(orcamentoParaExcluir); setOrcamentoParaExcluir(null); toast.success('Orçamento excluído.'); }}
           onCancelar={() => setOrcamentoParaExcluir(null)}
         />
       )}

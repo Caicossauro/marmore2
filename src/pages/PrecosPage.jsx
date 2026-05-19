@@ -5,6 +5,8 @@ import { formatBRL } from '../utils/formatters';
 import { ChevronDownIcon } from '../constants/icons';
 import { InputMoedaBR } from '../components/forms/InputMoedaBR';
 import { Button } from '../components/ui/Button';
+import { PageHeader } from '../components/layout/PageHeader';
+import { useToast } from '../contexts/ToastContext';
 
 const ACABAMENTOS = [
   { chave: 'polimento', label: 'Polimento' },
@@ -79,6 +81,7 @@ function CampoPreco({ chave, label, precos, atualizarPreco }) {
 
 export default function PrecosPage() {
   const { precos, precosSalvos, erroSalvar, atualizarPreco, salvarPrecos } = usePrecos();
+  const toast = useToast();
   const [salvando, setSalvando] = useState(false);
   const [secoes, setSecoes] = useState({ acabamentos: true, recortes: true, deslocamento: true, maoDeObra: true });
 
@@ -86,25 +89,24 @@ export default function PrecosPage() {
 
   const handleSalvar = async () => {
     setSalvando(true);
-    await salvarPrecos();
-    setSalvando(false);
+    try {
+      await salvarPrecos();
+      toast.success('Preços salvos com sucesso.');
+    } catch {
+      toast.error('Não foi possível salvar os preços.');
+    } finally {
+      setSalvando(false);
+    }
   };
 
   return (
-    <div className="p-6">
-      <div className="bg-gray-100 rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+    <div className="p-1 sm:p-2">
+      <PageHeader
+        titulo="Preços Padrão"
+        subtitulo="Valores aplicados automaticamente ao criar um novo orçamento"
+      />
 
-        <div className="flex items-stretch justify-between border-b border-slate-200">
-          <div className="flex items-stretch">
-            <div className="flex flex-col justify-center px-5 py-[18px]">
-              <h1 className="text-2xl font-bold text-slate-800 leading-tight">Preços Padrão</h1>
-              <p className="text-xs text-slate-900 mt-0.5">
-                Valores aplicados automaticamente ao criar um novo orçamento
-              </p>
-            </div>
-          </div>
-          <div className="px-5 py-[18px]" />
-        </div>
+      <div className="bg-gray-100 rounded-lg shadow-sm border border-slate-200 overflow-hidden">
 
         <div
           className="bg-marble marble-section-hover border-b border-white/10 px-5 py-3 flex items-center justify-between cursor-pointer select-none"

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { formatBRL } from '../../utils/formatters';
 import { calcularOrcamentoComDetalhes } from '../../utils/calculations';
-import { ChevronDownIcon } from '../../constants/icons';
 import { Button } from '../ui/Button';
 
 export const ResumoOrcamento = ({ orcamentoAtual, materiais, precos, onSalvar }) => {
@@ -11,38 +10,9 @@ export const ResumoOrcamento = ({ orcamentoAtual, materiais, precos, onSalvar })
   );
 
   const [chapasExpandido, setChapasExpandido] = useState(false);
-  const [expandido, setExpandido] = useState(true);
 
   return (
-    <div
-      className="bg-white border-2 rounded-lg shadow-md hover:shadow-lg transition-all"
-      style={{ borderColor: '#cbd5e1', borderLeft: '6px solid #475569' }}
-    >
-      <button
-        type="button"
-        onClick={() => setExpandido((v) => !v)}
-        className={`w-full text-left p-3 sm:p-4 bg-white flex items-center justify-between hover:bg-slate-50 transition-colors ${
-          expandido ? 'border-b border-slate-200' : ''
-        }`}
-      >
-        <h3 className="text-base font-semibold text-slate-800">Resumo do Orçamento</h3>
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="text-base font-bold text-green-700">{formatBRL(orcamento.vendaTotal || 0)}</span>
-          <ChevronDownIcon
-            size={16}
-            className={`text-slate-500 transition-transform duration-300 ${expandido ? 'rotate-0' : '-rotate-90'}`}
-          />
-        </div>
-      </button>
-
-      <div
-        className="overflow-hidden transition-all duration-300 ease-in-out"
-        style={{
-          maxHeight: expandido ? '5000px' : '0',
-          opacity: expandido ? 1 : 0,
-        }}
-      >
-        <div className="p-3 sm:p-4 bg-white">
+    <div className="space-y-0">
 
       {orcamento.detalhesChapas && orcamento.detalhesChapas.length > 0 && (
         <div className="mb-6 border border-slate-200 rounded-lg overflow-hidden">
@@ -108,108 +78,6 @@ export const ResumoOrcamento = ({ orcamentoAtual, materiais, precos, onSalvar })
         </div>
       )}
 
-      {(orcamento.acabamentos > 0 || orcamento.recortes > 0 || (orcamento.detalhesChapas && orcamento.detalhesChapas.length > 0)) && (
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          {orcamento.acabamentos > 0 && (
-            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 flex flex-col">
-              <h4 className="font-semibold text-slate-700 mb-3">Acabamentos</h4>
-              <div className="space-y-2 flex-1">
-                {(() => {
-                  const acabamentosPorTipo = {};
-                  if (orcamento.detalhesAcabamentos && orcamento.detalhesAcabamentos.length > 0) {
-                    orcamento.detalhesAcabamentos.forEach(detalhe => {
-                      const tipo = detalhe.tipo;
-                      if (!acabamentosPorTipo[tipo]) acabamentosPorTipo[tipo] = 0;
-                      acabamentosPorTipo[tipo] += detalhe.valor;
-                    });
-                  }
-                  return Object.keys(acabamentosPorTipo)
-                    .filter(tipo => acabamentosPorTipo[tipo] > 0)
-                    .map((tipo, idx, arr) => (
-                      <div key={tipo} className={`flex justify-between items-center text-sm ${idx < arr.length - 1 ? 'pb-2 border-b border-slate-300' : ''}`}>
-                        <span className="text-slate-600 font-medium">{tipo}</span>
-                        <span className="text-slate-700 font-semibold">{formatBRL(acabamentosPorTipo[tipo])}</span>
-                      </div>
-                    ));
-                })()}
-              </div>
-              <div className="flex justify-between items-center text-sm pt-2 mt-auto border-t-2 border-slate-400">
-                <span className="text-slate-700 font-bold">Total</span>
-                <span className="text-slate-800 font-bold text-base">{formatBRL(orcamento.acabamentos)}</span>
-              </div>
-            </div>
-          )}
-          {orcamento.recortes > 0 && (
-            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 flex flex-col">
-              <h4 className="font-semibold text-slate-700 mb-3">Recortes</h4>
-              <div className="space-y-2 flex-1">
-                {(() => {
-                  const recortesPorTipo = {};
-                  if (orcamento.detalhesRecortes && orcamento.detalhesRecortes.length > 0) {
-                    orcamento.detalhesRecortes.forEach(detalhe => {
-                      const tipo = detalhe.tipo;
-                      if (!recortesPorTipo[tipo]) recortesPorTipo[tipo] = 0;
-                      recortesPorTipo[tipo] += detalhe.valor;
-                    });
-                  }
-                  return Object.keys(recortesPorTipo)
-                    .filter(tipo => recortesPorTipo[tipo] > 0)
-                    .map((tipo, idx, arr) => (
-                      <div key={tipo} className={`flex justify-between items-center text-sm ${idx < arr.length - 1 ? 'pb-2 border-b border-slate-300' : ''}`}>
-                        <span className="text-slate-600 font-medium">{tipo}</span>
-                        <span className="text-slate-700 font-semibold">{formatBRL(recortesPorTipo[tipo])}</span>
-                      </div>
-                    ));
-                })()}
-              </div>
-              <div className="flex justify-between items-center text-sm pt-2 mt-auto border-t-2 border-slate-400">
-                <span className="text-slate-700 font-bold">Total</span>
-                <span className="text-slate-800 font-bold text-base">{formatBRL(orcamento.recortes)}</span>
-              </div>
-            </div>
-          )}
-          {orcamento.detalhesChapas && orcamento.detalhesChapas.length > 0 && (
-            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 flex flex-col">
-              <h4 className="font-semibold text-slate-700 mb-3">Resumo de Metragem</h4>
-              <div className="space-y-2 flex-1">
-                <div className="flex justify-between items-center text-sm pb-2 border-b border-slate-300">
-                  <span className="text-slate-600 font-medium">Peças Cobradas</span>
-                  <div className="text-right">
-                    <span className="text-slate-700 font-semibold">
-                      {orcamento.detalhesChapas.reduce((sum, d) => sum + d.areaPecas, 0).toFixed(2)}m²
-                    </span>
-                    <span className="text-xs text-slate-500 ml-2">
-                      ({formatBRL(orcamento.detalhesChapas.reduce((sum, d) => sum + d.vendaPecas, 0))})
-                    </span>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center text-sm pb-2 border-b border-slate-300">
-                  <span className="text-slate-600 font-medium">Perda Cobrada</span>
-                  <div className="text-right">
-                    <span className="text-slate-700 font-semibold">
-                      {orcamento.detalhesChapas.reduce((sum, d) => sum + d.areaSobra, 0).toFixed(2)}m²
-                    </span>
-                    <span className="text-xs text-slate-500 ml-2">
-                      ({formatBRL(orcamento.detalhesChapas.reduce((sum, d) => sum + d.custoSobra, 0))} preço custo)
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-between items-center text-sm pt-2 mt-auto border-t-2 border-slate-400">
-                <span className="text-slate-700 font-bold">Total Geral</span>
-                <div className="text-right">
-                  <span className="text-slate-800 font-bold text-base">
-                    {orcamento.detalhesChapas.reduce((sum, d) => sum + d.areaTotal, 0).toFixed(2)}m²
-                  </span>
-                  <span className="text-xs text-slate-500 ml-2">
-                    ({((orcamento.detalhesChapas.reduce((sum, d) => sum + d.areaPecas, 0) / orcamento.detalhesChapas.reduce((sum, d) => sum + d.areaTotal, 0)) * 100).toFixed(1)}% aproveitamento)
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="mt-6 space-y-2">
         <div className="flex justify-between py-3 bg-slate-50 px-4 rounded-lg border border-slate-200">
@@ -282,8 +150,6 @@ export const ResumoOrcamento = ({ orcamentoAtual, materiais, precos, onSalvar })
           </Button>
         </div>
       )}
-        </div>
-      </div>
     </div>
   );
 };

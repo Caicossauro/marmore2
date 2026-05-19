@@ -42,7 +42,7 @@ export const Header = ({
   const emEditor = tela === 'orcamento' || tela === 'plano-corte' || tela === 'precos' || tela === 'materiais';
 
   return (
-    <header data-app-header className="bg-marble border-b border-white/10 flex-shrink-0 sticky top-0 z-40 overflow-hidden">
+    <header data-app-header className="bg-sidebar border-b border-white/10 flex-shrink-0 sticky top-0 z-40 overflow-hidden">
       <div
         className="flex items-center h-12 px-4 gap-2 sm:gap-3 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
         style={{

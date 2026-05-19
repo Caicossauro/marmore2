@@ -14,6 +14,7 @@ import {
   ArrowUpDown as _ArrowUpDown,
   ArrowUp as _ArrowUp,
   ArrowDown as _ArrowDown,
+  GripVertical as _GripVertical,
 } from 'lucide-react';
 
 // Ícones como wrappers de emoji — legado, usados no SistemaOrcamentoMarmore existente.
@@ -50,5 +51,6 @@ export const ChevronRightIcon = _ChevronRight;
 export const ChevronDownIcon  = _ChevronDown;
 export const SearchIcon       = _Search;
 export const ArrowUpDownIcon  = _ArrowUpDown;
-export const ArrowUpIcon      = _ArrowUp;
-export const ArrowDownIcon    = _ArrowDown;
+export const ArrowUpIcon        = _ArrowUp;
+export const ArrowDownIcon      = _ArrowDown;
+export const GripVerticalIcon   = _GripVertical;

@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
+import { PanelLeft } from 'lucide-react';
 import logoImg from '/logo.png';
 import { auth, isFirebaseConfigured } from '../../lib/firebase';
 import {
@@ -61,28 +62,40 @@ export function Sidebar({ retraido, onToggle, onFechar }) {
     }
   };
 
-  const linkClass = ({ isActive }) =>
-    `flex items-center py-2.5 rounded-lg text-sm font-medium transition-colors
-     ${retraido ? 'ml-3 w-10 justify-center' : 'gap-3 px-4'}
-     ${isActive ? linkAtivo : linkInativo}`;
+  const linkClass = ({ isActive }) => {
+    const base = 'flex items-center py-2.5 rounded-lg text-sm font-medium transition-colors';
+    if (retraido) {
+      return `${base} ml-3 w-10 justify-center ${isActive ? linkAtivo : linkInativo}`;
+    }
+    return `${base} gap-3 pr-4 pl-[13px] border-l-[3px] transition-colors
+      ${isActive
+        ? `${linkAtivo} border-white`
+        : `${linkInativo} border-transparent`
+      }`;
+  };
 
   return (
-    <aside className="w-full h-screen bg-marble flex flex-col flex-shrink-0 overflow-hidden">
+    <aside className="w-full h-screen bg-sidebar flex flex-col flex-shrink-0 overflow-hidden">
 
       {/* Logo */}
       <button
         onClick={onToggle}
-        className={`flex items-center border-b border-white/10 w-full hover:bg-white/10 transition-colors shrink-0 ${retraido ? 'pl-3 py-4' : 'gap-3 px-4 py-4'}`}
+        className={`flex items-center border-b border-white/10 w-full hover:bg-white/10 transition-colors shrink-0 ${retraido ? 'justify-center py-7' : 'gap-3 px-4 py-7'}`}
         title={retraido ? 'Expandir menu' : 'Retrair menu'}
       >
-        <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-          <img src={logoImg} alt="Pietra" className="w-full h-full object-cover" />
-        </div>
-        {!retraido && (
-          <div className="text-left overflow-hidden">
-            <p className="text-white font-bold text-sm leading-tight whitespace-nowrap">Pietra</p>
-            <p className="text-slate-300 text-xs whitespace-nowrap">Ambientes</p>
-          </div>
+        {retraido ? (
+          <PanelLeft size={22} className="text-white/60" />
+        ) : (
+          <>
+            <div className="w-20 h-20 flex-shrink-0">
+              <img src={logoImg} alt="MarmoSys" className="w-full h-full object-contain" />
+            </div>
+            <div className="text-left overflow-hidden">
+              <p className="text-white font-bold text-sm leading-tight whitespace-nowrap">MarmoSys</p>
+              <p className="text-slate-300 text-xs whitespace-nowrap">Soluções</p>
+              <p className="text-slate-300 text-xs whitespace-nowrap">Para Marmoraria</p>
+            </div>
+          </>
         )}
       </button>
 
@@ -100,7 +113,7 @@ export function Sidebar({ retraido, onToggle, onFechar }) {
                 className={linkClass}
               >
                 <entry.Icon size={17} className="shrink-0" />
-                {!retraido && <span className="whitespace-nowrap overflow-hidden">{entry.label}</span>}
+                <span className={`whitespace-nowrap overflow-hidden transition-all duration-200 ${retraido ? 'opacity-0 w-0' : 'opacity-100'}`}>{entry.label}</span>
               </NavLink>
             );
           }
@@ -123,7 +136,7 @@ export function Sidebar({ retraido, onToggle, onFechar }) {
                     className={linkClass}
                   >
                     <Icon size={17} className="shrink-0" />
-                    {!retraido && <span className="whitespace-nowrap overflow-hidden">{label}</span>}
+                    <span className={`whitespace-nowrap overflow-hidden transition-all duration-200 ${retraido ? 'opacity-0 w-0' : 'opacity-100'}`}>{label}</span>
                   </NavLink>
                 ))}
               </div>
@@ -131,6 +144,34 @@ export function Sidebar({ retraido, onToggle, onFechar }) {
           );
         })}
       </nav>
+
+      {/* Perfil do usuário */}
+      {auth?.currentUser && (
+        <div className={`border-t border-white/10 pt-3 pb-1 ${retraido ? 'px-0' : 'px-3'}`}>
+          {retraido ? (
+            <div className="flex justify-center mb-2">
+              <div
+                className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white text-xs font-bold shrink-0"
+                title={auth.currentUser.email ?? ''}
+              >
+                {(auth.currentUser.email || 'U')[0].toUpperCase()}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 px-4 py-2 rounded-lg">
+              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                {(auth.currentUser.email || 'U')[0].toUpperCase()}
+              </div>
+              <div className="overflow-hidden flex-1 min-w-0">
+                <p className="text-white text-xs font-medium truncate leading-tight">
+                  {auth.currentUser.displayName || auth.currentUser.email}
+                </p>
+                <p className="text-slate-400 text-[10px] leading-tight mt-0.5">Administrador</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Sair */}
       <div className={`pb-4 border-t border-white/10 pt-3 ${retraido ? 'px-0' : 'px-3'}`}>
@@ -142,6 +183,9 @@ export function Sidebar({ retraido, onToggle, onFechar }) {
           <LogOutIcon size={17} className="shrink-0" />
           {!retraido && <span className="whitespace-nowrap">Sair</span>}
         </button>
+        {!retraido && (
+          <p className="text-[10px] text-slate-600 text-center mt-2 select-none">v1.0</p>
+        )}
       </div>
 
     </aside>

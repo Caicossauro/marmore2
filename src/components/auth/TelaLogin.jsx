@@ -63,79 +63,27 @@ export const TelaLogin = ({ aoEntrar }) => {
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1e1b4b 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-        fontFamily: 'system-ui, sans-serif'
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: '380px' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-          <div
-            style={{
-              width: '80px',
-              height: '80px',
-              background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-              borderRadius: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 10px 40px rgba(59,130,246,0.3)',
-              fontSize: '38px'
-            }}
-          >
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-800 via-slate-900 to-indigo-950">
+      <div className="w-full max-w-[380px]">
+
+        <div className="flex justify-center mb-6">
+          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-[20px] flex items-center justify-center text-[38px] shadow-[0_10px_40px_rgba(59,130,246,0.3)]">
             ⊞
           </div>
         </div>
 
-        <h1
-          style={{
-            color: '#fff',
-            fontSize: '28px',
-            fontWeight: 'bold',
-            textAlign: 'center',
-            margin: '0 0 4px 0'
-          }}
-        >
+        <h1 className="text-white text-[28px] font-bold text-center mb-1">
           Pietra Ambientes
         </h1>
-        <p
-          style={{
-            color: '#94a3b8',
-            textAlign: 'center',
-            margin: '0 0 32px 0',
-            fontSize: '14px'
-          }}
-        >
+        <p className="text-slate-400 text-center text-sm mb-8">
           Sistema de Orçamentos
         </p>
 
-        <div
-          style={{
-            background: '#1e293b',
-            borderRadius: '20px',
-            border: '1px solid #334155',
-            padding: '32px',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.4)'
-          }}
-        >
-          <label
-            style={{
-              display: 'block',
-              color: '#cbd5e1',
-              fontSize: '13px',
-              fontWeight: '600',
-              marginBottom: '8px'
-            }}
-          >
+        <div className="bg-slate-800 rounded-[20px] border border-slate-700 p-8 shadow-[0_25px_50px_rgba(0,0,0,0.4)]">
+
+          <label className="block text-slate-300 text-[13px] font-semibold mb-2">
             E-mail
           </label>
-
           <input
             type="email"
             value={email}
@@ -145,34 +93,15 @@ export const TelaLogin = ({ aoEntrar }) => {
             disabled={bloqueado || verificando}
             autoFocus
             autoComplete="username"
-            style={{
-              width: '100%',
-              padding: '12px 16px',
-              borderRadius: '12px',
-              border: erro ? '2px solid #ef4444' : '1px solid #475569',
-              background: bloqueado ? '#1e293b' : '#334155',
-              color: '#fff',
-              fontSize: '16px',
-              outline: 'none',
-              boxSizing: 'border-box',
-              cursor: bloqueado ? 'not-allowed' : 'text',
-              transition: 'border 0.2s',
-              marginBottom: '16px'
-            }}
+            className={`w-full px-4 py-3 rounded-xl text-white text-base outline-none transition-colors mb-4
+              ${bloqueado ? 'bg-slate-800 cursor-not-allowed' : 'bg-slate-700'}
+              ${erro ? 'border-2 border-red-500' : 'border border-slate-600'}
+            `}
           />
 
-          <label
-            style={{
-              display: 'block',
-              color: '#cbd5e1',
-              fontSize: '13px',
-              fontWeight: '600',
-              marginBottom: '8px'
-            }}
-          >
+          <label className="block text-slate-300 text-[13px] font-semibold mb-2">
             Senha
           </label>
-
           <input
             type="password"
             value={senha}
@@ -181,44 +110,21 @@ export const TelaLogin = ({ aoEntrar }) => {
             placeholder={bloqueado ? `Bloqueado... ${segundosRestantes}s` : '••••••••'}
             disabled={bloqueado || verificando}
             autoComplete="current-password"
-            style={{
-              width: '100%',
-              padding: '12px 16px',
-              borderRadius: '12px',
-              border: erro ? '2px solid #ef4444' : '1px solid #475569',
-              background: bloqueado ? '#1e293b' : '#334155',
-              color: '#fff',
-              fontSize: '16px',
-              outline: 'none',
-              boxSizing: 'border-box',
-              cursor: bloqueado ? 'not-allowed' : 'text',
-              transition: 'border 0.2s'
-            }}
+            className={`w-full px-4 py-3 rounded-xl text-white text-base outline-none transition-colors
+              ${bloqueado ? 'bg-slate-800 cursor-not-allowed' : 'bg-slate-700'}
+              ${erro ? 'border-2 border-red-500' : 'border border-slate-600'}
+            `}
           />
 
           {erro && !bloqueado && (
-            <p
-              style={{
-                color: '#f87171',
-                fontSize: '13px',
-                marginTop: '8px',
-                margin: '8px 0 0 0'
-              }}
-            >
+            <p className="text-red-400 text-[13px] mt-2">
               ⚠️ {erro}
               {tentativas > 0 && tentativas < 5 && ` Tentativas restantes: ${5 - tentativas}`}
             </p>
           )}
 
           {bloqueado && (
-            <p
-              style={{
-                color: '#fbbf24',
-                fontSize: '13px',
-                marginTop: '8px',
-                margin: '8px 0 0 0'
-              }}
-            >
+            <p className="text-amber-400 text-[13px] mt-2">
               🔒 Bloqueado por tentativas. Aguarde {segundosRestantes}s
             </p>
           )}
@@ -226,37 +132,18 @@ export const TelaLogin = ({ aoEntrar }) => {
           <button
             onClick={tentar}
             disabled={bloqueado || !email || !senha || verificando}
-            style={{
-              width: '100%',
-              marginTop: '24px',
-              padding: '13px',
-              borderRadius: '12px',
-              border: 'none',
-              background:
-                bloqueado || !email || !senha || verificando
-                  ? '#475569'
-                  : 'linear-gradient(135deg, #3b82f6, #2563eb)',
-              color: '#fff',
-              fontSize: '15px',
-              fontWeight: '700',
-              cursor: bloqueado || !email || !senha || verificando ? 'not-allowed' : 'pointer',
-              boxShadow:
-                bloqueado || !email || !senha || verificando ? 'none' : '0 4px 15px rgba(59,130,246,0.4)',
-              transition: 'all 0.2s'
-            }}
+            className={`w-full mt-6 py-[13px] rounded-xl border-none text-white text-[15px] font-bold transition-all
+              ${bloqueado || !email || !senha || verificando
+                ? 'bg-slate-600 cursor-not-allowed shadow-none'
+                : 'bg-gradient-to-br from-blue-500 to-blue-600 cursor-pointer shadow-[0_4px_15px_rgba(59,130,246,0.4)] hover:brightness-110'
+              }
+            `}
           >
             {bloqueado ? '🔒 Bloqueado' : verificando ? 'Verificando...' : 'Entrar'}
           </button>
         </div>
 
-        <p
-          style={{
-            color: '#475569',
-            textAlign: 'center',
-            fontSize: '12px',
-            marginTop: '20px'
-          }}
-        >
+        <p className="text-slate-600 text-center text-xs mt-5">
           Acesso restrito · Fale com o administrador para obter as credenciais
         </p>
       </div>

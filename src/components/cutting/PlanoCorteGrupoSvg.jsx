@@ -10,6 +10,27 @@ import {
   corDaPeca, clarear, escurecer, sanitizarIdSvg,
 } from '../../utils/cutting/svgHelpers';
 
+// Quebra o nome da peça em linhas de no máximo `max` caracteres, respeitando
+// os espaços como pontos de quebra.
+function splitLabel(text, max = 12) {
+  if (!text) return [''];
+  const words = text.trim().split(/\s+/);
+  const lines = [];
+  let current = '';
+  for (const word of words) {
+    if (!current) {
+      current = word;
+    } else if ((current + ' ' + word).length <= max) {
+      current += ' ' + word;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
 /**
  * PlanoCorteGrupoSvg — renderiza TODAS as chapas de um material num único SVG.
  *
@@ -870,22 +891,30 @@ export const PlanoCorteGrupoSvg = ({
                       fill={fillCor} stroke={cor} strokeWidth={ehHover ? 2.5 : 1.5}
                     />
                     {(() => {
-                      // Label = nome da peça (fallback: #N). Se peça está rotacionada (90°),
-                      // o texto também roda — segue a orientação visual da peça.
                       const label = peca.nome?.trim() || `#${idx + 1}`;
                       const cx = px + pw / 2;
                       const cy = py + ph / 2;
                       const rot = peca.rotacao === 90 ? -90 : 0;
+                      const lines = splitLabel(label);
+                      const lh = 16;
+                      const totalH = (lines.length - 1) * lh;
                       return (
                         <text
-                          x={cx} y={cy}
-                          textAnchor="middle" dominantBaseline="central"
-                          fontSize="14" fontWeight="bold"
+                          textAnchor="middle" fontSize="14" fontWeight="bold"
                           fill={textCor} fontFamily="Arial, sans-serif"
                           pointerEvents="none"
                           transform={rot !== 0 ? `rotate(${rot} ${cx} ${cy})` : undefined}
                         >
-                          {label}
+                          {lines.map((line, i) => (
+                            <tspan
+                              key={i}
+                              x={cx}
+                              y={cy - totalH / 2 + i * lh}
+                              dominantBaseline="central"
+                            >
+                              {line}
+                            </tspan>
+                          ))}
                         </text>
                       );
                     })()}
@@ -1073,16 +1102,26 @@ export const PlanoCorteGrupoSvg = ({
                   const cx = px + pw / 2;
                   const cy = py + ph / 2;
                   const rot = peca.rotacao === 90 ? -90 : 0;
+                  const lines = splitLabel(peca.nome?.trim() || '–');
+                  const lh = 16;
+                  const totalH = (lines.length - 1) * lh;
                   return (
                     <text
-                      x={cx} y={cy}
-                      textAnchor="middle" dominantBaseline="central"
-                      fontSize="14" fontWeight="bold"
+                      textAnchor="middle" fontSize="14" fontWeight="bold"
                       fill={textCor} fontFamily="Arial, sans-serif"
                       pointerEvents="none"
                       transform={rot !== 0 ? `rotate(${rot} ${cx} ${cy})` : undefined}
                     >
-                      {peca.nome || '–'}
+                      {lines.map((line, i) => (
+                        <tspan
+                          key={i}
+                          x={cx}
+                          y={cy - totalH / 2 + i * lh}
+                          dominantBaseline="central"
+                        >
+                          {line}
+                        </tspan>
+                      ))}
                     </text>
                   );
                 })()}

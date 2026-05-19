@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { EditorDePecaPortal } from './EditorDePecaPortal';
 import { formatBRL } from '../../utils/formatters';
 import { calcularCustosPeca } from '../../utils/calculations';
@@ -8,7 +8,7 @@ import { PreviewAcabamentos } from '../preview/PreviewAcabamentos';
 import { temaDoAmbiente } from '../../constants/colors';
 import { useSharedHeight } from '../../hooks/useSharedHeight';
 import { STORAGE_KEYS } from '../../constants/config';
-import { ChevronDownIcon } from '../../constants/icons';
+import { ChevronDownIcon, GripVerticalIcon } from '../../constants/icons';
 
 const MATERIAL_CONFIG_PADRAO = {
   comprimento: 3000,
@@ -78,11 +78,14 @@ export const AmbienteCard = ({
   ambiente, indice = 0, materiais, materialConfigs, precos, perda = 0,
   onAdicionarPeca, onExcluirAmbiente, onRenomearAmbiente,
   onVisualizarPeca, onPedirConfirmacaoExclusao,
-  // Controle externo do form de "Nova Peça" — apenas 1 ambiente edita por vez,
-  // pra que o preview global (renderizado em portal) não duplique.
   formAberto = false, onAbrirForm, onFecharForm,
+  isDragging = false, isDragOver = false,
+  onDragStart, onDragEnd, onDragOver,
+  onToggleAtivo,
 }) => {
+  const ativo = ambiente.ativo !== false;
   const [expandido, setExpandido] = useState(false);
+  const canDrag = useRef(false);
   const mostrarForm = formAberto;
   const setMostrarForm = (valor) => {
     if (valor) onAbrirForm?.();
@@ -160,7 +163,28 @@ export const AmbienteCard = ({
 
   return (
     <div
-      className="bg-white border-2 rounded-lg shadow-md hover:shadow-lg transition-all overflow-hidden"
+      draggable
+      onDragStart={(e) => {
+        if (!canDrag.current) { e.preventDefault(); return; }
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'ambiente');
+        onDragStart?.();
+      }}
+      onDragEnd={() => {
+        canDrag.current = false;
+        onDragEnd?.();
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        onDragOver?.();
+      }}
+      onDrop={(e) => e.preventDefault()}
+      className={`border-2 rounded-lg shadow-md transition-all overflow-hidden flex
+        ${isDragging ? 'opacity-40 shadow-none' : 'hover:shadow-lg'}
+        ${isDragOver ? 'ring-2 ring-slate-400 ring-offset-1' : ''}
+        ${!ativo ? 'opacity-50' : ''}
+      `}
       style={{
         position: 'relative',
         zIndex: 1,
@@ -168,14 +192,35 @@ export const AmbienteCard = ({
         borderLeft: `6px solid ${tema.base}`,
       }}
     >
+      {/* Grip handle — coluna esquerda, centralizada verticalmente no card inteiro */}
       <div
-        className={`p-3 sm:p-4 bg-white hover:bg-slate-50 cursor-pointer transition-colors ${
+        onMouseDown={() => { canDrag.current = true; }}
+        onMouseUp={() => { canDrag.current = false; }}
+        onClick={(e) => e.stopPropagation()}
+        className="flex items-center justify-center px-2 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 transition-colors shrink-0 select-none bg-white"
+        title="Arrastar para reordenar"
+      >
+        <GripVerticalIcon size={16} />
+      </div>
+
+      {/* Conteúdo principal */}
+      <div className="flex-1 min-w-0 bg-white">
+      <div
+        className={`p-2 sm:p-3 bg-white hover:bg-slate-50 cursor-pointer transition-colors ${
           expandido ? 'border-b border-slate-200' : ''
         }`}
         onClick={() => setExpandido(!expandido)}
       >
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
+            <input
+              type="checkbox"
+              checked={ativo}
+              onChange={(e) => { e.stopPropagation(); onToggleAtivo?.(); }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-4 h-4 rounded accent-slate-700 cursor-pointer shrink-0"
+              title={ativo ? 'Desativar ambiente do orçamento' : 'Ativar ambiente no orçamento'}
+            />
             {editandoNome ? (
               <input
                 autoFocus
@@ -238,29 +283,32 @@ export const AmbienteCard = ({
           </div>
         </div>
 
-        {ambiente.pecas.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-            {[
-              { label: 'Material', valor: subtotais.material },
-              { label: 'Acabamentos', valor: subtotais.acabamentos },
-              { label: 'Recortes', valor: subtotais.recortes },
-              ...(subtotais.adicionais > 0 ? [{ label: 'Outros', valor: subtotais.adicionais }] : []),
-              { label: 'Perda', valor: perda },
-              { label: 'Mão de Obra', valor: subtotais.maoDeObra },
-              { label: 'Total', valor: subtotais.total + perda, destaque: true },
-            ].map(({ label, valor, destaque }) => (
-              <div
-                key={label}
-                className="rounded p-2 border border-slate-200 bg-slate-50"
-              >
-                <div className="text-xs text-slate-500 text-center">{label}</div>
-                <div className={`text-center ${destaque ? 'text-sm font-bold text-slate-900' : 'text-sm font-semibold text-slate-700'}`}>
-                  {formatBRL(valor)}
+        {ambiente.pecas.length > 0 && (() => {
+          const fabricacao = subtotais.acabamentos + subtotais.recortes + (subtotais.adicionais || 0);
+          const itens = [
+            { label: 'Material',   valor: subtotais.material },
+            { label: 'Fabricação', valor: fabricacao },
+            { label: 'Perda',      valor: perda },
+            { label: 'Mão de Obra', valor: subtotais.maoDeObra },
+            { label: 'Total',      valor: subtotais.total + perda, destaque: true },
+          ];
+          const colsClass = 'md:grid-cols-5';
+          return (
+            <div className={`grid grid-cols-2 ${colsClass} gap-2`}>
+              {itens.map(({ label, valor, destaque }) => (
+                <div
+                  key={label}
+                  className="rounded p-2 border border-slate-200 bg-slate-50"
+                >
+                  <div className="text-xs text-slate-500 text-center">{label}</div>
+                  <div className={`text-center ${destaque ? 'text-sm font-bold text-slate-900' : 'text-sm font-semibold text-slate-700'}`}>
+                    {formatBRL(valor)}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       <div
@@ -494,6 +542,7 @@ export const AmbienteCard = ({
             label="Arraste para ajustar a altura do bloco"
           />
         )}
+      </div>
       </div>
     </div>
   );

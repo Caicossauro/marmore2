@@ -5,7 +5,7 @@
 @layer base {
   body {
     @apply m-0 p-0;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
   #root {
@@ -34,18 +34,21 @@
 
 /* ── Textura de mármore preto ───────────────────────────────────────────────── */
 
-/* Fundo para sidebar, header e barras de navegação */
+/* Fundo para barras de navegação e cabeçalhos de tabela */
 .bg-marble {
   background-image: url('./black.webp');
   background-size: cover;
   background-position: left center;
 }
 
-/* Fundo branco de mármore para a área de conteúdo das páginas */
+/* Fundo do menu lateral e header mobile — zinc-900 sólido */
+.bg-sidebar {
+  background-color: #18181b;
+}
+
+/* Fundo para a área de conteúdo das páginas */
 .bg-marble-white {
-  background-image: url('./white.webp');
-  background-size: cover;
-  background-position: center top;
+  background-color: #f1f5f9;
 }
 
 /* Verde: revela do escuro — usado no primeiro hover sobre a linha */
@@ -97,36 +100,13 @@
 .dialog-card-in  { animation: dialog-card-in  0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
 .dialog-card-out { animation: dialog-card-out 0.18s ease-in forwards; }
 
-/* Hover dourado para células do cabeçalho da tabela */
-/* background-attachment: fixed ancora a imagem no viewport, não no elemento:
-   todas as colunas compartilham o mesmo "mapa" → continuidade ao mover o mouse */
+/* Hover sutil para células do cabeçalho da tabela */
 .header-th {
-  transition: color 0.4s ease-out;
-}
-
-.header-th::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url('./gold.webp');
-  background-attachment: fixed;
-  background-size: 200%;
-  background-repeat: no-repeat;
-  background-position: 20% 40%;
-  opacity: 0;
-  transition: opacity 0.4s ease-out;
-  pointer-events: none;
-  animation: marble-flow 240s linear infinite;
-  animation-play-state: paused;
+  transition: background-color 0.15s ease;
 }
 
 .header-th:hover {
-  color: black;
-}
-
-.header-th:hover::before {
-  opacity: 1;
-  animation-play-state: running;
+  background-color: #3f3f46;
 }
 
 
@@ -361,9 +341,15 @@ tr.marble-row-hover:has(.excluir-btn:hover) td * {
 .acoes-sticky {
   position: sticky !important;
   right: 0;
-  background-color: #f3f4f6;
+  background-color: #f3f4f6; /* gray-100 — igual ao card em repouso */
   z-index: 2;
   box-shadow: -4px 0 8px -2px rgba(0, 0, 0, 0.1);
+  transition: background-color 150ms ease;
+}
+
+/* Acompanha o hover:bg-slate-50 do <tr> pai */
+tr:hover .acoes-sticky {
+  background-color: #f8fafc;
 }
 
 /* Cabeçalho da coluna Ações: sombra sobre o conteúdo rolado abaixo */
@@ -380,4 +366,65 @@ tr.marble-row-hover:has(.excluir-btn:hover) td * {
   height: 100vh;
   font-size: 24px;
   color: #334155;
+}
+
+/* ── Utilitários de formulário ──────────────────────────────────────────────── */
+
+.input-base {
+  @apply w-full rounded-input border border-border bg-white px-3 py-2 text-sm text-content-primary
+         placeholder:text-content-muted
+         focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500
+         disabled:bg-surface-muted disabled:cursor-not-allowed
+         transition-colors duration-150;
+}
+
+.input-base-error {
+  @apply border-status-danger focus:ring-status-danger/30 focus:border-status-danger;
+}
+
+.label-base {
+  @apply block text-sm font-medium text-content-secondary mb-1;
+}
+
+/* ── Focus ring global (acessibilidade por teclado) ─────────────────────────── */
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid #16a34a;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* ── Animação de entrada de página ───────────────────────────────────────────── */
+
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+.page-enter {
+  animation: page-in 0.18s ease-out;
+}
+
+/* ── Scrollbar customizada (sidebar nav e outros elementos com overflow) ─────── */
+/* A <main> do AppLayout já oculta sua scrollbar — estas regras afetam        */
+/* os demais elementos rolantes da aplicação (sidebar nav, modais, etc.)       */
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

@@ -2,25 +2,9 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmDialog } from '../components/layout/ConfirmDialog';
 import { SecaoAcordeao } from '../components/forms/SecaoAcordeao';
+import { FormField } from '../components/forms/FormField';
 import { useClienteForm } from '../hooks/useClienteForm';
 import { Button } from '../components/ui/Button';
-
-const Campo = ({ label, obrigatorio, erro, children }) => (
-  <div>
-    <label className="block text-sm font-medium text-slate-700 mb-1.5">
-      {label}
-      {obrigatorio && <span className="text-red-500 ml-0.5">*</span>}
-    </label>
-    {children}
-    {erro && <p className="mt-1 text-xs text-red-500">{erro}</p>}
-  </div>
-);
-
-const inputClass =
-  'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-slate-400 focus:border-slate-400 focus:outline-none transition-colors';
-
-const inputErroClass =
-  'w-full border border-red-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-300 focus:border-red-400 focus:outline-none transition-colors';
 
 export default function ClienteFormPage() {
   const navigate = useNavigate();
@@ -54,14 +38,14 @@ export default function ClienteFormPage() {
 
   if (isEdicao && carregando) {
     return (
-      <div className="p-6 flex items-center justify-center py-20">
+      <div className="p-1 sm:p-2 flex items-center justify-center py-20">
         <p className="text-slate-400 text-sm">Carregando cliente...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
+    <div className="p-1 sm:p-2">
       <div className="bg-gray-100 rounded-lg shadow-sm border border-slate-200 overflow-hidden">
 
         {/* ── Header ── */}
@@ -95,59 +79,59 @@ export default function ClienteFormPage() {
           {/* ── Dados principais ── */}
           <SecaoAcordeao titulo="Dados principais" aberta={secoes.dadosPrincipais} onToggle={() => toggleSecao('dadosPrincipais')} backgroundPosition="15% 25%">
             <div className="bg-gray-100 px-5 pt-5 pb-12 space-y-4 border-b border-slate-200">
-              <Campo label="Nome" obrigatorio erro={erros.nome}>
+              <FormField label="Nome" obrigatorio erro={erros.nome}>
                 <input
                   type="text"
                   value={form.nome}
                   onChange={e => set('nome', e.target.value)}
-                  className={erros.nome ? inputErroClass : inputClass}
+                  className={`input-base${erros.nome ? ' input-base-error' : ''}`}
                   placeholder="Nome completo"
                   autoFocus
                 />
-              </Campo>
+              </FormField>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Campo label="Telefone">
+                <FormField label="Telefone">
                   <input
                     type="tel"
                     value={form.telefone}
                     onChange={handleTelefone}
-                    className={inputClass}
+                    className="input-base"
                     placeholder="(00) 00000-0000"
                     inputMode="numeric"
                   />
-                </Campo>
-                <Campo label="CPF / CNPJ" erro={erros.cpfCnpj}>
+                </FormField>
+                <FormField label="CPF / CNPJ" erro={erros.cpfCnpj}>
                   <input
                     type="text"
                     value={form.cpfCnpj}
                     onChange={handleCpfCnpj}
-                    className={erros.cpfCnpj ? inputErroClass : inputClass}
+                    className={`input-base${erros.cpfCnpj ? ' input-base-error' : ''}`}
                     placeholder="000.000.000-00"
                     inputMode="numeric"
                   />
-                </Campo>
-                <Campo label="RG" erro={erros.rg}>
+                </FormField>
+                <FormField label="RG" erro={erros.rg}>
                   <input
                     type="text"
                     value={form.rg}
                     onChange={handleRg}
-                    className={erros.rg ? inputErroClass : inputClass}
+                    className={`input-base${erros.rg ? ' input-base-error' : ''}`}
                     placeholder="00.000.000-0"
                     inputMode="numeric"
                   />
-                </Campo>
+                </FormField>
               </div>
 
-              <Campo label="E-mail" erro={erros.email}>
+              <FormField label="E-mail" erro={erros.email}>
                 <input
                   type="email"
                   value={form.email}
                   onChange={e => set('email', e.target.value)}
-                  className={erros.email ? inputErroClass : inputClass}
+                  className={`input-base${erros.email ? ' input-base-error' : ''}`}
                   placeholder="email@exemplo.com"
                 />
-              </Campo>
+              </FormField>
             </div>
           </SecaoAcordeao>
 
@@ -155,13 +139,13 @@ export default function ClienteFormPage() {
           <SecaoAcordeao titulo="Endereço" aberta={secoes.endereco} onToggle={() => toggleSecao('endereco')} backgroundPosition="50% 50%">
             <div className="bg-gray-100 px-5 pt-5 pb-12 space-y-4 border-b border-slate-200">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Campo label="CEP">
+                <FormField label="CEP">
                   <div className="relative">
                     <input
                       type="text"
                       value={form.endereco.cep}
                       onChange={handleCep}
-                      className={`${inputClass} ${cepErro ? 'border-red-400' : ''}`}
+                      className={`input-base${cepErro ? ' input-base-error' : ''}`}
                       placeholder="00000-000"
                       inputMode="numeric"
                       maxLength={9}
@@ -172,71 +156,71 @@ export default function ClienteFormPage() {
                       </span>
                     )}
                   </div>
-                  {cepErro && <p className="mt-1 text-xs text-red-500">{cepErro}</p>}
-                </Campo>
+                  {cepErro && <p className="mt-1 text-xs text-status-danger">{cepErro}</p>}
+                </FormField>
                 <div className="sm:col-span-2">
-                  <Campo label="Rua / Logradouro">
+                  <FormField label="Rua / Logradouro">
                     <input
                       type="text"
                       value={form.endereco.rua}
                       onChange={e => setEnd('rua', e.target.value)}
-                      className={inputClass}
+                      className="input-base"
                       placeholder="Rua, Avenida..."
                     />
-                  </Campo>
+                  </FormField>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <Campo label="Número">
+                <FormField label="Número">
                   <input
                     type="text"
                     value={form.endereco.numero}
                     onChange={e => setEnd('numero', e.target.value)}
-                    className={inputClass}
+                    className="input-base"
                     placeholder="123"
                   />
-                </Campo>
+                </FormField>
                 <div className="col-span-1 sm:col-span-3">
-                  <Campo label="Complemento">
+                  <FormField label="Complemento">
                     <input
                       type="text"
                       value={form.endereco.complemento}
                       onChange={e => setEnd('complemento', e.target.value)}
-                      className={inputClass}
+                      className="input-base"
                       placeholder="Apto, bloco..."
                     />
-                  </Campo>
+                  </FormField>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Campo label="Bairro">
+                <FormField label="Bairro">
                   <input
                     type="text"
                     value={form.endereco.bairro}
                     onChange={e => setEnd('bairro', e.target.value)}
-                    className={inputClass}
+                    className="input-base"
                   />
-                </Campo>
-                <Campo label="Cidade">
+                </FormField>
+                <FormField label="Cidade">
                   <input
                     type="text"
                     value={form.endereco.cidade}
                     onChange={e => setEnd('cidade', e.target.value)}
-                    className={inputClass}
+                    className="input-base"
                   />
-                </Campo>
-                <Campo label="UF">
+                </FormField>
+                <FormField label="UF">
                   <input
                     type="text"
                     value={form.endereco.uf}
                     onChange={e => setEnd('uf', e.target.value.toUpperCase().slice(0, 2))}
-                    className={inputClass}
+                    className="input-base"
                     placeholder="SP"
                     maxLength={2}
                   />
-                </Campo>
+                </FormField>
               </div>
             </div>
           </SecaoAcordeao>
@@ -244,15 +228,15 @@ export default function ClienteFormPage() {
           {/* ── Observações ── */}
           <SecaoAcordeao titulo="Observações" aberta={secoes.observacoes} onToggle={() => toggleSecao('observacoes')} backgroundPosition="80% 75%">
             <div className="bg-gray-100 px-5 py-5">
-              <Campo label="Observações">
+              <FormField label="Observações">
                 <textarea
                   value={form.observacoes}
                   onChange={e => set('observacoes', e.target.value)}
                   rows={3}
-                  className={`${inputClass} resize-none`}
+                  className="input-base resize-none"
                   placeholder="Informações adicionais sobre o cliente..."
                 />
-              </Campo>
+              </FormField>
             </div>
           </SecaoAcordeao>
 

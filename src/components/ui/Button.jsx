@@ -26,7 +26,7 @@ const SIZES = {
 };
 
 const VARIANTS = {
-  primary:          'inline-flex items-center justify-center bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white font-semibold shadow-sm hover:shadow disabled:hover:bg-slate-900',
+  primary:          'inline-flex items-center justify-center bg-zinc-900 hover:bg-zinc-700 active:bg-zinc-800 text-white font-semibold shadow-sm hover:shadow disabled:hover:bg-zinc-900',
   secondary:        'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 hover:border-slate-400 font-medium',
   ghost:            'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium',
   destructive:      'bg-white text-red-700 border border-red-300 hover:bg-red-50 hover:border-red-400 font-medium',

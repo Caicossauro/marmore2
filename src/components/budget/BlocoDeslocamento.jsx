@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { MapaPreview } from './MapaPreview';
 import { InputEnderecoAutocomplete } from './InputEnderecoAutocomplete';
 import { useDistanciaRota } from '../../hooks/useDistanciaRota';
@@ -7,7 +7,6 @@ import {
 } from '../../utils/deslocamento';
 import { formatBRL } from '../../utils/formatters';
 import { ENDERECO_SAIDA_PADRAO } from '../../constants/config';
-import { ChevronDownIcon } from '../../constants/icons';
 
 const DESLOCAMENTO_VAZIO = {
   modoEntrega: 'estadia',
@@ -177,43 +176,9 @@ export function BlocoDeslocamento({ deslocamento, onChange, precos }) {
   const erroDias = validarDiasEntrega(d.diasEntrega);
 
   const calc = useMemo(() => calcularDeslocamento(d, precos), [d, precos]);
-  const [expandido, setExpandido] = useState(false);
 
   return (
-    <div
-      className="bg-white border-2 rounded-lg shadow-md hover:shadow-lg transition-all"
-      style={{ borderColor: '#cbd5e1', borderLeft: '6px solid #475569' }}
-    >
-      <button
-        type="button"
-        onClick={() => setExpandido((v) => !v)}
-        className={`w-full text-left p-3 sm:p-4 bg-white flex items-center justify-between hover:bg-slate-50 transition-colors ${
-          expandido ? 'border-b border-slate-200' : ''
-        }`}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <h3 className="text-base font-semibold text-slate-800">Deslocamento</h3>
-          <span className="text-xs text-slate-500 truncate">
-            {rota.loading ? 'Calculando rota…' : rota.km != null ? `${rota.km.toFixed(1)} km (ida)` : '— km'}
-          </span>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="text-base font-bold text-green-700">{formatBRL(calc.total)}</span>
-          <ChevronDownIcon
-            size={16}
-            className={`text-slate-500 transition-transform duration-300 ${expandido ? 'rotate-0' : '-rotate-90'}`}
-          />
-        </div>
-      </button>
-
-      <div
-        className="overflow-hidden transition-all duration-300 ease-in-out"
-        style={{
-          maxHeight: expandido ? '5000px' : '0',
-          opacity: expandido ? 1 : 0,
-        }}
-      >
-      <div className="p-3 sm:p-4 space-y-4 bg-white">
+    <div className="space-y-4">
         {/* Endereços com autocomplete */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <InputEnderecoAutocomplete
@@ -387,8 +352,6 @@ export function BlocoDeslocamento({ deslocamento, onChange, precos }) {
             <span className="text-base font-bold text-green-700">{formatBRL(calc.total)}</span>
           </div>
         </div>
-      </div>
-      </div>
     </div>
   );
 }

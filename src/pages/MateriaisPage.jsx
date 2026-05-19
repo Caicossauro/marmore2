@@ -7,6 +7,11 @@ import { FiltroColuna, ResizeHandle } from '../components/layout/TabelaFiltros';
 import { getMateriaColumWidths, saveMateriaColumWidths } from '../utils/database';
 import { STORAGE_KEYS } from '../constants/config';
 import { Button } from '../components/ui/Button';
+import { PageHeader } from '../components/layout/PageHeader';
+import { TableSkeleton } from '../components/ui/TableSkeleton';
+import { EmptyState } from '../components/ui/EmptyState';
+import { MateriaisIcon } from '../constants/icons';
+import { useToast } from '../contexts/ToastContext';
 
 const ITENS_POR_PAGINA = 13;
 
@@ -47,6 +52,8 @@ const formatDim = (m) => {
 export default function MateriaisPage() {
   const navigate = useNavigate();
   const { materiais, excluirMaterial, carregando } = useMaterials();
+
+  const toast = useToast();
 
   const [buscaInput, setBuscaInput]                   = useState('');
   const [busca, setBusca]                             = useState('');
@@ -168,27 +175,27 @@ export default function MateriaisPage() {
     <tr
       key={material.id}
       onClick={() => navigate(`/materiais/${material.id}`)}
-      className="marble-row-hover cursor-pointer"
+      className="hover:bg-slate-50 cursor-pointer transition-colors duration-150"
     >
-      <td className="mrow-cell px-5 py-3 font-medium text-slate-800 overflow-hidden">
+      <td className="px-5 py-3 font-medium text-slate-800 overflow-hidden">
         <span className="truncate block">{material.nome}</span>
       </td>
-      <td className="mrow-cell px-5 py-3 text-slate-600 overflow-hidden">
+      <td className="px-5 py-3 text-slate-600 overflow-hidden">
         <span className="truncate block">{material.tipo || <span className="text-slate-300">—</span>}</span>
       </td>
-      <td className="mrow-cell px-5 py-3 text-slate-600 overflow-hidden">
+      <td className="px-5 py-3 text-slate-600 overflow-hidden">
         <span className="truncate block">{material.acabamento || <span className="text-slate-300">—</span>}</span>
       </td>
-      <td className="mrow-cell px-5 py-3 text-slate-600 overflow-hidden">
+      <td className="px-5 py-3 text-slate-600 overflow-hidden">
         <span className="truncate block">{material.origem || <span className="text-slate-300">—</span>}</span>
       </td>
-      <td className="mrow-cell px-5 py-3 text-slate-500 overflow-hidden">
+      <td className="px-5 py-3 text-slate-500 overflow-hidden">
         <span className="truncate block text-sm">{formatDim(material) ?? <span className="text-slate-300">—</span>}</span>
       </td>
-      <td className="mrow-cell sticky right-0 z-[2] acoes-sticky px-5 py-3 text-center overflow-hidden" onClick={e => e.stopPropagation()}>
+      <td className="sticky right-0 z-[2] acoes-sticky px-5 py-3 text-center overflow-hidden" onClick={e => e.stopPropagation()}>
         <button
           onClick={() => setMaterialParaExcluir(material.id)}
-          className="excluir-btn text-slate-400 hover:text-red-600 hover:bg-red-50 px-3 py-1 rounded-lg text-xs font-medium transition-colors"
+          className="text-slate-400 hover:text-red-600 hover:bg-red-50 px-3 py-1 rounded-lg text-xs font-medium transition-colors"
         >
           Excluir
         </button>
@@ -199,18 +206,12 @@ export default function MateriaisPage() {
   const temFiltroAtivo = buscaInput || Object.values(filtrosColuna).some(Boolean);
 
   return (
-    <div className="p-6">
-      <div className={`bg-gray-100 rounded-lg shadow-sm border border-slate-200 ${filtroAberto ? 'overflow-visible' : 'overflow-hidden'}`}>
-
-        {/* ── Header ── */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center justify-between px-5 py-[18px] border-b border-slate-200">
-          <div className="shrink-0">
-            <h1 className="text-2xl font-bold text-slate-800 leading-tight">Materiais</h1>
-            <p className="text-xs text-slate-900 mt-0.5">
-              {materiais.length} cadastrado{materiais.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+    <div className="p-1 sm:p-2">
+      <PageHeader
+        titulo="Materiais"
+        subtitulo={`${materiais.length} cadastrado${materiais.length !== 1 ? 's' : ''}`}
+        acoes={
+          <>
             <div
               className="overflow-hidden transition-[width,opacity] duration-300 ease-in-out"
               style={{ width: buscaAberta ? '280px' : '0', opacity: buscaAberta ? 1 : 0 }}
@@ -233,51 +234,68 @@ export default function MateriaisPage() {
             >
               <SearchIcon size={16} />
             </button>
-            <Button variant="primary" size="lg" onClick={() => navigate('/materiais/novo')} className="shrink-0 w-full sm:w-auto">
+            <Button variant="primary" size="lg" onClick={() => navigate('/materiais/novo')} className="shrink-0">
               + Novo Material
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {/* ── Tabela ── */}
+      <div className={`bg-gray-100 rounded-lg shadow-sm border border-slate-200 ${filtroAberto ? 'overflow-visible' : 'overflow-hidden'}`}>
+
         {carregando ? (
-          <div className="text-center py-12 text-slate-400 text-sm">Carregando...</div>
+          <TableSkeleton linhas={7} />
         ) : filtrados.length === 0 ? (
-          <div className="text-center py-12 text-slate-400 text-sm">
-            {temFiltroAtivo ? 'Nenhum material encontrado com os filtros aplicados.' : 'Nenhum material cadastrado.'}
-          </div>
+          temFiltroAtivo ? (
+            <EmptyState
+              icone={MateriaisIcon}
+              titulo="Nenhum material encontrado"
+              descricao="Tente ajustar ou limpar os filtros aplicados."
+            />
+          ) : (
+            <EmptyState
+              icone={MateriaisIcon}
+              titulo="Nenhum material cadastrado ainda"
+              descricao="Adicione materiais para usá-los nos orçamentos."
+              acao={
+                <Button variant="primary" size="sm" onClick={() => navigate('/materiais/novo')}>
+                  + Novo Material
+                </Button>
+              }
+            />
+          )
         ) : (
           <div ref={tableWrapperRef} className={filtroAberto ? 'overflow-visible' : 'overflow-x-auto'}>
             <table className="w-full min-w-0" style={{ tableLayout: 'fixed', width: '100%', minWidth: colWidths.nome + 100 }}>
               <thead className="relative z-20">
-                <tr className="bg-marble border-b border-white/10 text-left">
+                <tr className="bg-sidebar border-b border-white/10 text-left">
 
-                  <th style={{ width: colWidths.nome }} className="header-th px-5 py-3 text-white relative overflow-visible">
+                  <th style={{ width: colWidths.nome }} className="header-th px-5 py-4 text-white relative overflow-visible">
                     <FiltroColuna coluna="nome" label="Nome" ordenacao={ordenacao} onOrdenar={handleOrdenar} filtro={filtrosColuna.nome} onFiltrar={handleFiltrar} aberto={filtroAberto === 'nome'} onToggle={handleToggleFiltro} />
                     <ResizeHandle coluna="nome" onResizeDelta={handleResizeDelta} />
                   </th>
 
-                  <th style={{ width: colWidths.tipo }} className="header-th px-5 py-3 text-white relative overflow-visible">
+                  <th style={{ width: colWidths.tipo }} className="header-th px-5 py-4 text-white relative overflow-visible">
                     <FiltroColuna coluna="tipo" label="Tipo" ordenacao={ordenacao} onOrdenar={handleOrdenar} filtro={filtrosColuna.tipo} onFiltrar={handleFiltrar} aberto={filtroAberto === 'tipo'} onToggle={handleToggleFiltro} />
                     <ResizeHandle coluna="tipo" onResizeDelta={handleResizeDelta} />
                   </th>
 
-                  <th style={{ width: colWidths.acabamento }} className="header-th px-5 py-3 text-white relative overflow-visible">
+                  <th style={{ width: colWidths.acabamento }} className="header-th px-5 py-4 text-white relative overflow-visible">
                     <FiltroColuna coluna="acabamento" label="Acabamento" ordenacao={ordenacao} onOrdenar={handleOrdenar} filtro={filtrosColuna.acabamento} onFiltrar={handleFiltrar} aberto={filtroAberto === 'acabamento'} onToggle={handleToggleFiltro} />
                     <ResizeHandle coluna="acabamento" onResizeDelta={handleResizeDelta} />
                   </th>
 
-                  <th style={{ width: colWidths.origem }} className="header-th px-5 py-3 text-white relative overflow-visible">
+                  <th style={{ width: colWidths.origem }} className="header-th px-5 py-4 text-white relative overflow-visible">
                     <FiltroColuna coluna="origem" label="Origem" ordenacao={ordenacao} onOrdenar={handleOrdenar} filtro={filtrosColuna.origem} onFiltrar={handleFiltrar} aberto={filtroAberto === 'origem'} onToggle={handleToggleFiltro} />
                     <ResizeHandle coluna="origem" onResizeDelta={handleResizeDelta} />
                   </th>
 
-                  <th style={{ width: colWidths.dimensoes }} className="header-th px-5 py-3 font-semibold text-white relative overflow-hidden">
+                  <th style={{ width: colWidths.dimensoes }} className="header-th px-5 py-4 text-[11px] font-semibold uppercase tracking-wider text-white/60 relative overflow-hidden">
                     Dimensões
                     <ResizeHandle coluna="dimensoes" onResizeDelta={handleResizeDelta} />
                   </th>
 
-                  <th style={{ width: 100, minWidth: 100, maxWidth: 100 }} className="header-th sticky right-0 z-[1] bg-marble px-5 py-3 font-semibold text-white text-center acoes-th-sticky">
+                  <th style={{ width: 100, minWidth: 100, maxWidth: 100 }} className="header-th sticky right-0 z-[1] bg-sidebar px-5 py-4 text-[11px] font-semibold uppercase tracking-wider text-white/60 text-center acoes-th-sticky">
                     Ações
                   </th>
 
@@ -300,7 +318,7 @@ export default function MateriaisPage() {
       {materialParaExcluir && (
         <ConfirmDialog
           mensagem="Deseja realmente excluir este material? Orçamentos que o usam podem ficar inconsistentes."
-          onConfirmar={() => { excluirMaterial(materialParaExcluir); setMaterialParaExcluir(null); }}
+          onConfirmar={() => { excluirMaterial(materialParaExcluir); setMaterialParaExcluir(null); toast.success('Material excluído.'); }}
           onCancelar={() => setMaterialParaExcluir(null)}
         />
       )}

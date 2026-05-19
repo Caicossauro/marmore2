@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   calcularMaoDeObraOrcamento,
   calcularMontagemAmbiente,
@@ -6,7 +6,6 @@ import {
   calcularColagemPeca,
 } from '../../utils/maoDeObra';
 import { formatBRL } from '../../utils/formatters';
-import { ChevronDownIcon } from '../../constants/icons';
 
 /**
  * Bloco de Mão de Obra do orçamento.
@@ -19,8 +18,6 @@ import { ChevronDownIcon } from '../../constants/icons';
  * Padrão: bloco começa fechado, exibindo apenas o total agregado.
  */
 export function BlocoMaoDeObra({ orcamento, onAtualizarAmbiente, precos }) {
-  const [expandido, setExpandido] = useState(false);
-
   const maoDeObra = useMemo(
     () => calcularMaoDeObraOrcamento(orcamento, precos),
     [orcamento, precos]
@@ -30,46 +27,7 @@ export function BlocoMaoDeObra({ orcamento, onAtualizarAmbiente, precos }) {
   const precoM2 = Number(precos?.maoDeObraMontagemPorM2) || 0;
 
   return (
-    <div
-      className="bg-white border-2 rounded-lg shadow-md hover:shadow-lg transition-all"
-      style={{ borderColor: '#cbd5e1', borderLeft: '6px solid #475569' }}
-    >
-      <button
-        type="button"
-        onClick={() => setExpandido((v) => !v)}
-        className={`w-full text-left p-3 sm:p-4 bg-white flex items-center justify-between hover:bg-slate-50 transition-colors ${
-          expandido ? 'border-b border-slate-200' : ''
-        }`}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <h3 className="text-base font-semibold text-slate-800">Mão de Obra</h3>
-          <span className="text-xs text-slate-500 truncate">
-            {(() => {
-              const partes = [];
-              if (maoDeObra.fixacao > 0) partes.push(`Fixação ${formatBRL(maoDeObra.fixacao)}`);
-              if (maoDeObra.colagem > 0) partes.push(`Colagem ${formatBRL(maoDeObra.colagem)}`);
-              if (maoDeObra.montagem > 0) partes.push(`Montagem ${formatBRL(maoDeObra.montagem)}`);
-              return partes.length === 0 ? 'Nenhuma cobrança ativa' : partes.join(' · ');
-            })()}
-          </span>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="text-base font-bold text-green-700">{formatBRL(maoDeObra.total)}</span>
-          <ChevronDownIcon
-            size={16}
-            className={`text-slate-500 transition-transform duration-300 ${expandido ? 'rotate-0' : '-rotate-90'}`}
-          />
-        </div>
-      </button>
-
-      <div
-        className="overflow-hidden transition-all duration-300 ease-in-out"
-        style={{
-          maxHeight: expandido ? '5000px' : '0',
-          opacity: expandido ? 1 : 0,
-        }}
-      >
-        <div className="p-3 sm:p-4 space-y-3 bg-white">
+    <div className="space-y-3">
           {ambientes.length === 0 ? (
             <p className="text-xs text-slate-500 italic">
               Adicione peças aos ambientes para configurar a mão de obra.
@@ -78,13 +36,33 @@ export function BlocoMaoDeObra({ orcamento, onAtualizarAmbiente, precos }) {
             ambientes.map((amb) => {
               const detalhes = maoDeObra.detalhesPorAmbiente[amb.id] || { fixacao: 0, colagem: 0, montagem: 0, areaMontagem: 0, total: 0 };
               const cobrarMontagem = amb.cobrarMontagem === true;
-              const cobrarFixacao = amb.cobrarFixacao !== false; // default ON (retrocompat)
-              const cobrarColagem = amb.cobrarColagem !== false; // default ON (retrocompat)
               const pecasComFixacao = (amb.pecas || []).filter(p => p.cobrarFixacao === true).length;
               const pecasComColagem = (amb.pecas || []).filter(p => p.cobrarColagem === true).length;
+              // Default: ligado só se houver peças marcadas (e não explicitamente desligado)
+              const cobrarFixacao = amb.cobrarFixacao === false ? false : pecasComFixacao > 0;
+              const cobrarColagem = amb.cobrarColagem === false ? false : pecasComColagem > 0;
               const montagemInfo = calcularMontagemAmbiente({ ...amb, cobrarMontagem: true }, precos);
-              // Totais brutos (ignorando o master switch) para exibir o valor que SERIA cobrado
-              // quando o toggle está desligado — feedback visual igual ao da Montagem.
+
+              // Totais de fixação: metros lineares, grapas e P.U. somados por peça
+              const totaisFixacao = (amb.pecas || []).reduce((acc, peca) => {
+                if (peca.cobrarFixacao !== true) return acc;
+                const qtd = Number(peca.quantidade) || 1;
+                const calc = calcularFixacaoPeca(peca, precos);
+                return {
+                  larguraM:  acc.larguraM  + calc.larguraM  * qtd,
+                  qtdGrapas: acc.qtdGrapas + calc.qtdGrapas * qtd,
+                  qtdPus:    acc.qtdPus    + calc.qtdPus    * qtd,
+                };
+              }, { larguraM: 0, qtdGrapas: 0, qtdPus: 0 });
+
+              // Área total de colagem em m²
+              const areaColagemM2 = (amb.pecas || []).reduce((acc, peca) => {
+                if (peca.cobrarColagem !== true) return acc;
+                const qtd = Number(peca.quantidade) || 1;
+                const calc = calcularColagemPeca(peca, precos);
+                return acc + calc.areaM2 * qtd;
+              }, 0);
+
               const fixacaoBruta = (amb.pecas || []).reduce((acc, peca) => {
                 const calc = calcularFixacaoPeca(peca, precos);
                 return acc + calc.total * (Number(peca.quantidade) || 1);
@@ -119,7 +97,7 @@ export function BlocoMaoDeObra({ orcamento, onAtualizarAmbiente, precos }) {
                         </span>
                         <span className="text-slate-400">
                           {pecasComFixacao > 0
-                            ? `${pecasComFixacao} ${pecasComFixacao === 1 ? 'peça marcada' : 'peças marcadas'}`
+                            ? `${totaisFixacao.larguraM.toFixed(2)}m · ${totaisFixacao.qtdGrapas} grapa${totaisFixacao.qtdGrapas !== 1 ? 's' : ''} · ${totaisFixacao.qtdPus} P.U.`
                             : 'nenhuma peça marcada'}
                         </span>
                       </div>
@@ -142,7 +120,7 @@ export function BlocoMaoDeObra({ orcamento, onAtualizarAmbiente, precos }) {
                         </span>
                         <span className="text-slate-400">
                           {pecasComColagem > 0
-                            ? `${pecasComColagem} ${pecasComColagem === 1 ? 'peça marcada' : 'peças marcadas'}`
+                            ? `${areaColagemM2.toFixed(2)} m²`
                             : 'nenhuma peça marcada'}
                         </span>
                       </div>
@@ -181,8 +159,6 @@ export function BlocoMaoDeObra({ orcamento, onAtualizarAmbiente, precos }) {
             <span className="text-sm font-bold text-slate-800">Total Mão de Obra</span>
             <span className="text-base font-bold text-green-700">{formatBRL(maoDeObra.total)}</span>
           </div>
-        </div>
-      </div>
     </div>
   );
 }

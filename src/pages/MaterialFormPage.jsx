@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams, useBlocker } from 'react-router-dom';
 import { useMaterials, materialVazio } from '../hooks/useMaterials';
 import { ConfirmDialog } from '../components/layout/ConfirmDialog';
+import { FormField } from '../components/forms/FormField';
 import { ChevronDownIcon } from '../constants/icons';
 import { getTiposMaterial, saveTiposMaterial, getAcabamentosMaterial, saveAcabamentosMaterial } from '../utils/database';
 import { TIPOS_MATERIAL_PADRAO, ACABAMENTOS_MATERIAL_PADRAO } from '../constants/config';
@@ -32,28 +33,11 @@ const mapearTipoAutomatico = (tipoCsv, nome = '') => {
   return tipoCsv || 'Outro';
 };
 
-const inputClass =
-  'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-slate-400 focus:border-slate-400 focus:outline-none transition-colors bg-white';
-const inputErroClass =
-  'w-full border border-red-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-300 focus:border-red-400 focus:outline-none transition-colors bg-white';
-const selectClass =
-  'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-slate-400 focus:outline-none transition-colors bg-white';
-
 const sortPtBR = (arr) => [...arr].sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
 
 // Cache em memória — evita leituras repetidas ao Firebase a cada abertura do formulário
 let _tiposCache = null;
 let _acabamentosCache = null;
-
-const Campo = ({ label, obrigatorio, erro, children }) => (
-  <div>
-    <label className="block text-sm font-medium text-slate-700 mb-1.5">
-      {label}{obrigatorio && <span className="text-red-500 ml-0.5">*</span>}
-    </label>
-    {children}
-    {erro && <p className="mt-1 text-xs text-red-500">{erro}</p>}
-  </div>
-);
 
 const Secao = ({ titulo, bgPos, children }) => {
   const [aberta, setAberta] = useState(true);
@@ -278,14 +262,14 @@ export default function MaterialFormPage() {
 
   if (isEdicao && (carregando || materiais.length === 0)) {
     return (
-      <div className="p-6 flex items-center justify-center py-20">
+      <div className="p-1 sm:p-2 flex items-center justify-center py-20">
         <p className="text-slate-400 text-sm">Carregando material...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
+    <div className="p-1 sm:p-2">
       <div className="bg-gray-100 rounded-lg shadow-sm border border-slate-200 overflow-hidden">
 
         {/* ── Header ── */}
@@ -319,19 +303,19 @@ export default function MaterialFormPage() {
           {/* ── Identificação ── */}
           <Secao titulo="Identificação" bgPos="15% 25%">
               <div className="bg-gray-100 px-5 pt-5 pb-12 space-y-4 border-b border-slate-200">
-                <Campo label="Nome" obrigatorio erro={erros.nome}>
+                <FormField label="Nome" obrigatorio erro={erros.nome}>
                   <input
                     type="text"
                     value={form.nome}
                     onChange={e => set('nome', e.target.value)}
-                    className={erros.nome ? inputErroClass : inputClass}
+                    className={`input-base${erros.nome ? ' input-base-error' : ''}`}
                     placeholder="Ex: Paraná Novulatto"
                     autoFocus
                   />
-                </Campo>
+                </FormField>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Campo label="Tipo" obrigatorio erro={erros.tipo}>
+                  <FormField label="Tipo" obrigatorio erro={erros.tipo}>
                     {adicionandoTipo ? (
                       <div className="flex gap-1.5">
                         <input
@@ -344,7 +328,7 @@ export default function MaterialFormPage() {
                             if (e.key === 'Escape') { setNovoTipo(''); setAdicionandoTipo(false); }
                           }}
                           placeholder="Nome do novo tipo..."
-                          className={inputClass}
+                          className="input-base"
                         />
                         <Button type="button" variant="primary" size="sm" onClick={handleConfirmarNovoTipo} title="Confirmar">
                           ✓
@@ -360,16 +344,16 @@ export default function MaterialFormPage() {
                           if (e.target.value === '__novo__') { setAdicionandoTipo(true); }
                           else { set('tipo', e.target.value); }
                         }}
-                        className={erros.tipo ? inputErroClass : selectClass}
+                        className={`input-base${erros.tipo ? ' input-base-error' : ''}`}
                       >
                         <option value="">Selecionar...</option>
                         {tipos.map(t => <option key={t} value={t}>{t}</option>)}
                         <option value="__novo__">+ Adicionar tipo...</option>
                       </select>
                     )}
-                  </Campo>
+                  </FormField>
 
-                  <Campo label="Acabamento">
+                  <FormField label="Acabamento">
                     {adicionandoAcabamento ? (
                       <div className="flex gap-1.5">
                         <input
@@ -382,7 +366,7 @@ export default function MaterialFormPage() {
                             if (e.key === 'Escape') { setNovoAcabamento(''); setAdicionandoAcabamento(false); }
                           }}
                           placeholder="Nome do novo acabamento..."
-                          className={inputClass}
+                          className="input-base"
                         />
                         <Button type="button" variant="primary" size="sm" onClick={handleConfirmarNovoAcabamento} title="Confirmar">
                           ✓
@@ -398,35 +382,35 @@ export default function MaterialFormPage() {
                           if (e.target.value === '__novo__') { setAdicionandoAcabamento(true); }
                           else { set('acabamento', e.target.value); }
                         }}
-                        className={selectClass}
+                        className="input-base"
                       >
                         <option value="">Selecionar...</option>
                         {acabamentos.map(a => <option key={a} value={a}>{a}</option>)}
                         <option value="__novo__">+ Adicionar acabamento...</option>
                       </select>
                     )}
-                  </Campo>
+                  </FormField>
 
-                  <Campo label="Origem">
+                  <FormField label="Origem">
                     <input
                       type="text"
                       value={form.origem}
                       onChange={e => set('origem', e.target.value)}
-                      className={inputClass}
+                      className="input-base"
                       placeholder="Ex: Paraná, Itália..."
                     />
-                  </Campo>
+                  </FormField>
                 </div>
 
-                <Campo label="URL de referência">
+                <FormField label="URL de referência">
                   <input
                     type="url"
                     value={form.url}
                     onChange={e => set('url', e.target.value)}
-                    className={inputClass}
+                    className="input-base"
                     placeholder="https://..."
                   />
-                </Campo>
+                </FormField>
               </div>
           </Secao>
 
@@ -448,7 +432,7 @@ export default function MaterialFormPage() {
                       type="number"
                       value={dim.largura}
                       onChange={e => setDim(idx, 'largura', e.target.value)}
-                      className={inputClass}
+                      className="input-base"
                       placeholder="3220"
                       min={0}
                     />
@@ -456,7 +440,7 @@ export default function MaterialFormPage() {
                       type="number"
                       value={dim.altura}
                       onChange={e => setDim(idx, 'altura', e.target.value)}
-                      className={inputClass}
+                      className="input-base"
                       placeholder="2010"
                       min={0}
                     />
@@ -464,7 +448,7 @@ export default function MaterialFormPage() {
                       type="number"
                       value={dim.espessura}
                       onChange={e => setDim(idx, 'espessura', e.target.value)}
-                      className={inputClass}
+                      className="input-base"
                       placeholder="20"
                       min={0}
                     />
